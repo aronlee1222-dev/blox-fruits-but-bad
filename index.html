@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blox Fruits (But Bad)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import kaboom from "https://unpkg.com/kaboom@3000.1.17/dist/kaboom.mjs";
+
+        kaboom({
+            background: [135, 206, 235], // Sky blue
+        });
+
+        // Set gravity for the world
+        setGravity(1600);
+
+        // Load Sprites
+        loadSprite("player", "/sprites/player_swordsman.png");
+        loadSprite("bandit", "/sprites/bandit_enemy.png");
+        loadSprite("rocket", "/sprites/rocket_fruit.png");
+        loadSprite("spin", "/sprites/spin_fruit.png");
+        loadSprite("flame", "/sprites/flame_fruit.png");
+        loadSprite("dragon_beast", "/sprites/dragon_beast.png");
+        loadSprite("tiger_beast", "/sprites/tiger_beast.png");
+        loadSprite("kitsune_beast", "/sprites/kitsune_beast.png");
+        loadSprite("yeti_beast", "/sprites/yeti_beast.png");
+
+        scene("main", () => {
+            let score = 0;
+            const scoreLabel = add([
+                text("Beli: " + score),
+                pos(24, 24),
+                color(255, 255, 0)
+            ]);
+
+            // Grass floor
+            add([
+                rect(width(), 48),
+                pos(0, height() - 48),
+                outline(4),
+                area(),
+                body({ isStatic: true }),
+                color(34, 139, 34),
+            ]);
+
+            // Player
+            const player = add([
+                sprite("player"),
+                pos(100, 100),
+                area(),
+                body(),
+                anchor("center"),
+                scale(0.15),
+                "player",
+            ]);
+
+            // Bandit Enemy
+            const bandit = add([
+                sprite("bandit"),
+                pos(width() - 200, 100),
+                area(),
+                body(),
+                anchor("center"),
+                scale(0.15),
+                "enemy"
+            ]);
+
+            // Movement variables
+            const SPEED = 300;
+            let isDashing = false;
+            let jumpCount = 0;
+            const MAX_JUMPS = 12;
+            let currentFruit = null; // can be 'rocket', 'spin', or 'flame'
+            let isTransformed = false; // BEAST TRANSFORMATION STATE
+
+            onKeyDown("d", () => {
+                if (!isDashing) {
+                    player.move(SPEED, 0);
+                    player.flipX = false;
+                }
+            });
+
+            onKeyDown("a", () => {
+                if (!isDashing) {
+                    player.move(-SPEED, 0);
+                    player.flipX = true;
+                }
+            });
+
+            // Dash
+            onKeyPress("q", async () => {
+                if (!isDashing) {
+                    isDashing = true;
+                    const dir = player.flipX ? -1 : 1;
+                    tween(player.pos.x, player.pos.x + (dir * 200), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
+                    await wait(0.4);
+                    isDashing = false;
+                }
+            });
+
+            // 12x Jump
+            onKeyPress("w", () => {
+                if (player.isGrounded()) {
+                    jumpCount = 0;
+                }
+                if (jumpCount < MAX_JUMPS) {
+                    player.jump(400);
+                    jumpCount++;
+                }
+            });
+
+            player.onGround(() => {
+                jumpCount = 0;
+            });
+
+            // Attack (Click)
+            const doAttack = () => {
+                const dir = player.flipX ? -1 : 1;
+                add([
+                    rect(isTransformed ? 120 : 60, isTransformed ? 40 : 20), // BIGGER IF TRANSFORMED!
+                    pos(player.pos.x + (dir * 50), player.pos.y),
+                    anchor("center"),
+                    area(),
+                    color(isTransformed ? fruitColor : rgb(255, 255, 255)),
+                    move(dir === -1 ? LEFT : RIGHT, 800), // LONG RANGE PROJECTILE!
+                    lifespan(1),
+                    "attack" 
+                ]);
+            };
+
+            // Attack (Click or F)
+            const doAttack = () => {
+                const dir = player.flipX ? -1 : 1;
+                add([
+                    rect(isTransformed ? 120 : 60, isTransformed ? 40 : 20), // BIGGER IF TRANSFORMED!
+                    pos(player.pos.x + (dir * 50), player.pos.y),
+                    anchor("center"),
+                    area(),
+                    color(isTransformed ? fruitColor : rgb(255, 255, 255)),
+                    move(dir === -1 ? LEFT : RIGHT, 800), // LONG RANGE PROJECTILE!
+                    lifespan(1),
+                    "attack" 
+                ]);
+            };
+
+            onClick(doAttack);
+            onKeyPress("f", doAttack);
+
+            // GLOBAL: ANY Attack hurts ANY Enemy!
+            onCollide("attack", "enemy", (a, e) => {
+                destroy(e);
+                score += 100;
+                scoreLabel.text = "Beli: " + score;
+                shake(10);
+                
+                // ALL 40 BLOX FRUITS!
+                const fruits = ["rocket", "spin", "blade", "spring", "bomb", "smoke", "spike", "flame", "ice", "sand", "dark", "eagle", "diamond", "light", "rubber", "ghost", "magma", "quake", "buddha", "love", "creation", "spider", "sound", "phoenix", "portal", "lightning", "pain", "blizzard", "gravity", "mammoth", "t-rex", "shadow", "venom", "gas", "spirit", "tiger", "yeti", "kitsune", "control", "dragon"];
+                const drop = choose(fruits);
+                
+                // Color based on fruit name
+                let h = 0; for(let i=0;i<drop.length;i++) h = drop.charCodeAt(i) + ((h<<5)-h);
+                const fr = Math.abs((h & 0xFF0000) >> 16);
+                const fg = Math.abs((h & 0x00FF00) >> 8);
+                const fb = Math.abs(h & 0x0000FF);
+                
+                const fruitEnt = add([
+                    rect(40, 40, { radius: 10 }),
+                    color(fr, fg, fb),
+                    pos(e.pos.x, e.pos.y),
+                    area(),
+                    body(),
+                    anchor("center"),
+                    "fruit",
+                    { fruitType: drop, fr: fr, fg: fg, fb: fb }
+                ]);
+                fruitEnt.add([
+                    text(drop, { size: 12 }),
+                    anchor("center"),
+                    color(255,255,255)
+                ]);
+                
+                // Respawn bandit falling from the sky ON THE RIGHT SIDE!
+                wait(2, () => {
+                    add([
+                        sprite("bandit"),
+                        pos(width() - 50, 0), // ALWAYS ON THE RIGHT SIDE
+                        area(),
+                        body(),
+                        anchor("center"),
+                        scale(0.15),
+                        "enemy"
+                    ]);
+                });
+            });
+
+            let fruitColor = rgb(255,255,255);
+
+            // Collect fruit
+            player.onCollide("fruit", (f) => {
+                destroy(f);
+                currentFruit = f.fruitType;
+                fruitColor = rgb(f.fr, f.fg, f.fb);
+                add([
+                    text("Got " + f.fruitType.toUpperCase() + " Fruit!", { size: 32 }),
+                    pos(player.pos.x, player.pos.y - 80),
+                    anchor("center"),
+                    color(fruitColor),
+                    lifespan(2, { fade: 0.5 })
+                ]);
+            });
+
+            // Generic Fruit Abilities for ALL 40 fruits!
+            onKeyPress("z", () => {
+                if (!currentFruit) return;
+                add([rect(50, 30), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), "attack", move(player.flipX ? LEFT : RIGHT, 1000), lifespan(1)]);
+                shake(5);
+            });
+
+            onKeyPress("x", () => {
+                if (!currentFruit) return;
+                player.jump(800);
+                add([circle(40), pos(player.pos.x, player.pos.y + 20), anchor("center"), area(), color(fruitColor), "attack", lifespan(0.3, { fade: 0.3 })]);
+                shake(10);
+            });
+
+            onKeyPress("c", () => {
+                if (!currentFruit) return;
+                add([circle(120), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), lifespan(0.3, { fade: 0.2 }), "attack"]);
+                shake(20);
+            });
+
+            onKeyPress("v", async () => {
+                const beastFruits = ["dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "buddha", "venom"];
+                if (currentFruit && beastFruits.includes(currentFruit)) {
+                    // BEAST TRANSFORMATION!
+                    isTransformed = !isTransformed;
+                    if (isTransformed) {
+                        player.scale = vec2(0.4); 
+                        const hasSpecificSprite = ["dragon", "tiger", "kitsune", "yeti"].includes(currentFruit);
+                        if (hasSpecificSprite) {
+                            player.use(sprite(currentFruit + "_beast"));
+                        }
+                        player.color = rgb(255, 255, 255); 
+                        shake(30);
+                        add([
+                            text(currentFruit.toUpperCase() + " TRANSFORMATION!", { size: 48 }),
+                            pos(width()/2, height()/2),
+                            anchor("center"),
+                            color(fruitColor),
+                            lifespan(1.5, { fade: 0.5 })
+                        ]);
+                    } else {
+                        player.scale = vec2(0.15); 
+                        player.use(sprite("player")); 
+                        player.color = rgb(255, 255, 255);
+                        shake(10);
+                    }
+                } else {
+                    // Normal Dash for non-beast fruits!
+                    if (!currentFruit || isDashing) return;
+                    isDashing = true;
+                    const dir = player.flipX ? -1 : 1;
+                    add([rect(300, 60), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), lifespan(0.3, { fade: 0.3 }), "attack"]);
+                    tween(player.pos.x, player.pos.x + (dir * 500), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
+                    await wait(0.4);
+                    isDashing = false;
+                }
+            });
+
+            // Bandit AI - Moves towards the player
+            onUpdate("enemy", (e) => {
+                if (player.pos.x < e.pos.x) {
+                    e.move(-100, 0);
+                    e.flipX = false;
+                } else {
+                    e.move(100, 0);
+                    e.flipX = true;
+                }
+            });
+
+            // Bandit hits the player
+            player.onCollide("enemy", (e) => {
+                const dir = player.pos.x < e.pos.x ? -1 : 1;
+                player.jump(300); 
+                tween(player.pos.x, player.pos.x + (dir * 150), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
+                
+                add([
+                    text("Ouch!", { size: 32 }),
+                    pos(player.pos.x, player.pos.y - 50),
+                    anchor("center"),
+                    lifespan(0.5, { fade: 0.1 }),
+                    color(255, 0, 0)
+                ]);
+            });
+        });
+
+        go("main");
+    </script>
+</body>
+</html>
