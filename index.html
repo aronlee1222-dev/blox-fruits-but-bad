@@ -42,6 +42,13 @@
                 color(255, 255, 0)
             ]);
 
+            let playerHealth = 500;
+            const healthLabel = add([
+                text("HP: " + playerHealth + "/500"),
+                pos(24, 60),
+                color(255, 0, 0)
+            ]);
+
             // Grass floor
             add([
                 rect(width(), 48),
@@ -72,7 +79,7 @@
             // Bandit Enemy
             const bandit = add([
                 sprite("bandit"),
-                pos(width() - 200, 100),
+                pos(width() - 200, height() - 100),
                 area(),
                 body(),
                 anchor("center"),
@@ -181,11 +188,11 @@
                     color(255,255,255)
                 ]);
                 
-                // Respawn bandit falling from the sky ON THE RIGHT SIDE!
+                // Respawn bandit walking from the right side!
                 wait(2, () => {
                     add([
                         sprite("bandit"),
-                        pos(width() - 50, 0), // ALWAYS ON THE RIGHT SIDE
+                        pos(width() - 50, height() - 100), // ALWAYS ON THE RIGHT SIDE, ON THE GROUND
                         area(),
                         body(),
                         anchor("center"),
@@ -283,16 +290,34 @@
             // Bandit hits the player
             player.onCollide("enemy", (e) => {
                 const dir = player.pos.x < e.pos.x ? -1 : 1;
-                player.jump(300); 
                 tween(player.pos.x, player.pos.x + (dir * 150), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
                 
+                playerHealth -= 50;
+                healthLabel.text = "HP: " + playerHealth + "/500";
+
                 add([
-                    text("Ouch!", { size: 32 }),
+                    text("-50", { size: 32 }),
                     pos(player.pos.x, player.pos.y - 50),
                     anchor("center"),
                     lifespan(0.5, { fade: 0.1 }),
                     color(255, 0, 0)
                 ]);
+
+                if (playerHealth <= 0) {
+                    playerHealth = 500;
+                    healthLabel.text = "HP: " + playerHealth + "/500";
+                    player.pos = vec2(100, 100);
+                    score = 0;
+                    scoreLabel.text = "Beli: " + score;
+                    shake(30);
+                    add([
+                        text("YOU DIED!", { size: 64 }),
+                        pos(width() / 2, height() / 2),
+                        anchor("center"),
+                        color(255, 0, 0),
+                        lifespan(2, { fade: 0.5 })
+                    ]);
+                }
             });
         });
 
