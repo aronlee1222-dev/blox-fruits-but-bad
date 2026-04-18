@@ -57,6 +57,12 @@
                 "player",
             ]);
 
+            // Keep player on screen!
+            player.onUpdate(() => {
+                if (player.pos.x < 30) player.pos.x = 30;
+                if (player.pos.x > width() - 30) player.pos.x = width() - 30;
+            });
+
             // Bandit Enemy
             const bandit = add([
                 sprite("bandit"),
