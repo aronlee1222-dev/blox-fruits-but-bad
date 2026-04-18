@@ -116,20 +116,7 @@
                 jumpCount = 0;
             });
 
-            // Attack (Click)
-            const doAttack = () => {
-                const dir = player.flipX ? -1 : 1;
-                add([
-                    rect(isTransformed ? 120 : 60, isTransformed ? 40 : 20), // BIGGER IF TRANSFORMED!
-                    pos(player.pos.x + (dir * 50), player.pos.y),
-                    anchor("center"),
-                    area(),
-                    color(isTransformed ? fruitColor : rgb(255, 255, 255)),
-                    move(dir === -1 ? LEFT : RIGHT, 800), // LONG RANGE PROJECTILE!
-                    lifespan(1),
-                    "attack" 
-                ]);
-            };
+
 
             // Attack (Click or F)
             const doAttack = () => {
