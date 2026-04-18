@@ -30,6 +30,9 @@
         loadSprite("t-rex_beast", "sprites/t-rex_beast.png");
         loadSprite("venom_beast", "sprites/venom_beast.png");
         loadSprite("gas_beast", "sprites/gas_beast.png");
+        loadSprite("mammoth_beast", "sprites/mammoth_beast.png");
+        loadSprite("phoenix_beast", "sprites/phoenix_beast.png");
+        loadSprite("eagle_beast", "sprites/eagle_beast.png");
 
         scene("main", () => {
             let score = 0;
@@ -235,7 +238,7 @@
                     isTransformed = !isTransformed;
                     if (isTransformed) {
                         player.scale = vec2(0.4); 
-                        const hasSpecificSprite = ["dragon", "tiger", "kitsune", "yeti", "t-rex", "venom", "gas"].includes(currentFruit);
+                        const hasSpecificSprite = ["dragon", "tiger", "kitsune", "yeti", "t-rex", "venom", "gas", "mammoth", "phoenix", "eagle"].includes(currentFruit);
                         if (hasSpecificSprite) {
                             player.use(sprite(currentFruit + "_beast"));
                         }
