@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Blox Fruits (But Bad) - Updated Magic!</title>
+    <title>Blox Fruits (But Bad) - Boss Island Update!</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; }
     </style>
@@ -39,24 +39,57 @@
             const scoreLabel = add([
                 text("Beli: " + score),
                 pos(24, 24),
-                color(255, 255, 0)
+                color(255, 255, 0),
+                fixed()
             ]);
 
             let playerHealth = 500;
             const healthLabel = add([
                 text("HP: " + playerHealth + "/500"),
                 pos(24, 60),
-                color(255, 0, 0)
+                color(255, 0, 0),
+                fixed()
             ]);
 
-            // Grass floor
+            let bossHealth = 5000;
+            const bossHealthBar = add([
+                text("GORILLA KING HP: " + bossHealth),
+                pos(width() / 2, 40),
+                anchor("center"),
+                color(255, 50, 50),
+                fixed(),
+                opacity(0)
+            ]);
+
+            // Ocean (Death boundary)
             add([
-                rect(width(), 48),
-                pos(0, height() - 48),
+                rect(10000, 200),
+                pos(-1000, height()),
+                area(),
+                color(0, 105, 148), // Ocean blue
+                "ocean"
+            ]);
+
+            // Starter Island
+            add([
+                rect(1500, 48),
+                pos(-100, height() - 48),
                 outline(4),
                 area(),
                 body({ isStatic: true }),
-                color(34, 139, 34),
+                color(34, 139, 34), // Grass green
+                "ground"
+            ]);
+
+            // Boss Island (Far to the right!)
+            add([
+                rect(2000, 48),
+                pos(2500, height() - 48),
+                outline(4),
+                area(),
+                body({ isStatic: true }),
+                color(105, 105, 105), // Gray stone
+                "ground"
             ]);
 
             // Player
@@ -70,30 +103,91 @@
                 "player",
             ]);
 
-            // Keep player on screen!
+            const die = () => {
+                playerHealth = 500;
+                healthLabel.text = "HP: " + playerHealth + "/500";
+                player.pos = vec2(100, 100);
+                score = 0;
+                scoreLabel.text = "Beli: " + score;
+                shake(30);
+                add([
+                    text("YOU DIED!", { size: 64 }),
+                    pos(width() / 2, height() / 2),
+                    anchor("center"),
+                    color(255, 0, 0),
+                    fixed(),
+                    lifespan(2, { fade: 0.5 })
+                ]);
+            };
+
+            // Camera follow & fall in ocean check
             player.onUpdate(() => {
-                if (player.pos.x < 30) player.pos.x = 30;
-                if (player.pos.x > width() - 30) player.pos.x = width() - 30;
+                camPos(player.pos.x, height() / 2);
+                if (player.pos.x < -100) player.pos.x = -100; // Left boundary so you can't run backwards forever
+                
+                if (player.pos.y > height() + 100) {
+                    die(); // Fell in the ocean!
+                }
             });
 
-            // Bandit Enemy
-            const bandit = add([
-                sprite("bandit"),
-                pos(width() - 200, height() - 100),
+            // Bandit Enemy Spawner
+            const spawnBandit = () => {
+                // Spawn on starter island if player is there, else near player
+                let spawnX = player.pos.x + 400 * (choose([-1, 1]));
+                if (spawnX < 0) spawnX = 200; // Don't spawn off left edge
+                if (spawnX > 1400 && spawnX < 2500) spawnX = 1300; // Don't spawn in ocean
+                
+                add([
+                    sprite("bandit"),
+                    pos(spawnX, 100),
+                    area(),
+                    body(),
+                    anchor("center"),
+                    scale(0.15),
+                    "enemy"
+                ]);
+            };
+
+            spawnBandit(); // Initial bandit
+
+            // GORILLA BOSS
+            const boss = add([
+                sprite("bandit"), // Using bandit sprite but HUGE and RED
+                pos(3500, 100),
                 area(),
                 body(),
                 anchor("center"),
-                scale(0.15),
-                "enemy"
+                scale(0.6), // Huge!
+                color(255, 50, 50),
+                "boss"
             ]);
+
+            boss.onUpdate(() => {
+                // Wake up if player is near
+                if (Math.abs(player.pos.x - boss.pos.x) < 800 && bossHealth > 0) {
+                    bossHealthBar.opacity = 1;
+                    bossHealthBar.text = "GORILLA KING HP: " + bossHealth;
+                    
+                    if (player.pos.x < boss.pos.x) {
+                        boss.move(-120, 0); // Slightly faster than normal bandits
+                        boss.flipX = false;
+                    } else {
+                        boss.move(120, 0);
+                        boss.flipX = true;
+                    }
+                } else {
+                    bossHealthBar.opacity = 0;
+                }
+            });
+
 
             // Movement variables
             const SPEED = 300;
             let isDashing = false;
             let jumpCount = 0;
-            const MAX_JUMPS = 12;
-            let currentFruit = null; // can be 'rocket', 'spin', or 'flame'
-            let isTransformed = false; // BEAST TRANSFORMATION STATE
+            const MAX_JUMPS = 12; // Double jumps!
+            let currentFruit = null; 
+            let isTransformed = false; 
 
             onKeyDown("d", () => {
                 if (!isDashing) {
@@ -114,7 +208,7 @@
                 if (!isDashing) {
                     isDashing = true;
                     const dir = player.flipX ? -1 : 1;
-                    tween(player.pos.x, player.pos.x + (dir * 200), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
+                    tween(player.pos.x, player.pos.x + (dir * 250), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
                     await wait(0.4);
                     isDashing = false;
                 }
@@ -126,7 +220,7 @@
                     jumpCount = 0;
                 }
                 if (jumpCount < MAX_JUMPS) {
-                    player.jump(400);
+                    player.jump(450);
                     jumpCount++;
                 }
             });
@@ -135,18 +229,16 @@
                 jumpCount = 0;
             });
 
-
-
             // Attack (Click or F)
             const doAttack = () => {
                 const dir = player.flipX ? -1 : 1;
                 add([
-                    rect(isTransformed ? 120 : 60, isTransformed ? 150 : 20), // MASSIVE SLASH TO HIT THE GROUND!
-                    pos(player.pos.x + (dir * 80), player.pos.y + (isTransformed ? 40 : 0)), // Shift it down a bit too
+                    rect(isTransformed ? 120 : 60, isTransformed ? 150 : 20),
+                    pos(player.pos.x + (dir * 80), player.pos.y + (isTransformed ? 40 : 0)),
                     anchor("center"),
                     area(),
                     color(isTransformed ? fruitColor : rgb(255, 255, 255)),
-                    move(dir === -1 ? LEFT : RIGHT, 800), // LONG RANGE PROJECTILE!
+                    move(dir === -1 ? LEFT : RIGHT, 800),
                     lifespan(1),
                     "attack" 
                 ]);
@@ -155,14 +247,28 @@
             onClick(doAttack);
             onKeyPress("f", doAttack);
 
-            // GLOBAL: ANY Attack hurts ANY Enemy!
+            // Create hit visual effect
+            const createHitEffect = (p, c) => {
+                const eff = add([
+                    circle(10),
+                    pos(p),
+                    anchor("center"),
+                    color(c),
+                    lifespan(0.3, { fade: 0.3 })
+                ]);
+                eff.onUpdate(() => {
+                    eff.radius += 10;
+                });
+            };
+
+            // Attack hits normal enemy
             onCollide("attack", "enemy", (a, e) => {
+                createHitEffect(e.pos, rgb(255, 255, 0));
                 destroy(e);
                 score += 100;
                 scoreLabel.text = "Beli: " + score;
                 shake(10);
                 
-                // ALL 40 BLOX FRUITS!
                 const fruits = ["rocket", "spin", "blade", "spring", "bomb", "smoke", "spike", "flame", "ice", "sand", "dark", "eagle", "diamond", "light", "rubber", "ghost", "magma", "quake", "buddha", "love", "creation", "spider", "sound", "phoenix", "portal", "lightning", "pain", "blizzard", "gravity", "mammoth", "t-rex", "shadow", "venom", "gas", "spirit", "tiger", "yeti", "kitsune", "control", "dragon"];
                 const drop = choose(fruits);
                 
@@ -188,18 +294,66 @@
                     color(255,255,255)
                 ]);
                 
-                // Respawn bandit walking from the right side!
-                wait(2, () => {
+                wait(2, spawnBandit);
+            });
+
+            // Attack hits BOSS
+            onCollide("attack", "boss", (a, b) => {
+                createHitEffect(a.pos, rgb(255, 100, 0));
+                bossHealth -= isTransformed ? 200 : 100; // Do more damage if transformed!
+                shake(15);
+                destroy(a); // Destroy attack projectile
+
+                add([
+                    text(isTransformed ? "-200" : "-100", { size: 48 }),
+                    pos(a.pos.x, a.pos.y - 50),
+                    anchor("center"),
+                    color(255, 255, 0),
+                    lifespan(0.5, { fade: 0.2 })
+                ]);
+
+                if (bossHealth <= 0) {
+                    destroy(b);
+                    score += 5000;
+                    scoreLabel.text = "Beli: " + score;
+                    bossHealthBar.opacity = 0;
+                    shake(50);
+                    
                     add([
-                        sprite("bandit"),
-                        pos(width() - 50, height() - 100), // ALWAYS ON THE RIGHT SIDE, ON THE GROUND
-                        area(),
-                        body(),
+                        text("GORILLA KING DEFEATED!", { size: 64 }),
+                        pos(width() / 2, height() / 2),
                         anchor("center"),
-                        scale(0.15),
-                        "enemy"
+                        color(255, 215, 0),
+                        fixed(),
+                        lifespan(3, { fade: 1 })
                     ]);
-                });
+
+                    // Drop 3 random fruits!
+                    for(let k=0; k<3; k++) {
+                        const fruits = ["dragon", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle"]; // Boss drops high tier!
+                        const drop = choose(fruits);
+                        let h = 0; for(let i=0;i<drop.length;i++) h = drop.charCodeAt(i) + ((h<<5)-h);
+                        const fr = Math.abs((h & 0xFF0000) >> 16);
+                        const fg = Math.abs((h & 0x00FF00) >> 8);
+                        const fb = Math.abs(h & 0x0000FF);
+                        
+                        const fruitEnt = add([
+                            rect(50, 50, { radius: 15 }),
+                            color(fr, fg, fb),
+                            pos(b.pos.x - 100 + (k*100), b.pos.y),
+                            area(),
+                            body(),
+                            anchor("center"),
+                            "fruit",
+                            { fruitType: drop, fr: fr, fg: fg, fb: fb }
+                        ]);
+                        fruitEnt.add([
+                            text(drop, { size: 14 }),
+                            anchor("center"),
+                            color(255,255,255)
+                        ]);
+                    }
+                }
             });
 
             let fruitColor = rgb(255,255,255);
@@ -211,9 +365,10 @@
                 fruitColor = rgb(f.fr, f.fg, f.fb);
                 add([
                     text("Got " + f.fruitType.toUpperCase() + " Fruit!", { size: 32 }),
-                    pos(player.pos.x, player.pos.y - 80),
+                    pos(width()/2, height()/4),
                     anchor("center"),
                     color(fruitColor),
+                    fixed(),
                     lifespan(2, { fade: 0.5 })
                 ]);
             });
@@ -228,20 +383,19 @@
             onKeyPress("x", () => {
                 if (!currentFruit) return;
                 player.jump(800);
-                add([circle(40), pos(player.pos.x, player.pos.y + 20), anchor("center"), area(), color(fruitColor), "attack", lifespan(0.3, { fade: 0.3 })]);
+                add([circle(50), pos(player.pos.x, player.pos.y + 20), anchor("center"), area(), color(fruitColor), "attack", lifespan(0.3, { fade: 0.3 })]);
                 shake(10);
             });
 
             onKeyPress("c", () => {
                 if (!currentFruit) return;
-                add([circle(120), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), lifespan(0.3, { fade: 0.2 }), "attack"]);
+                add([circle(150), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), lifespan(0.3, { fade: 0.2 }), "attack"]);
                 shake(20);
             });
 
             onKeyPress("v", async () => {
                 const beastFruits = ["dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "buddha", "venom", "gas"];
                 if (currentFruit && beastFruits.includes(currentFruit)) {
-                    // BEAST TRANSFORMATION!
                     isTransformed = !isTransformed;
                     if (isTransformed) {
                         player.scale = vec2(0.4); 
@@ -256,6 +410,7 @@
                             pos(width()/2, height()/2),
                             anchor("center"),
                             color(fruitColor),
+                            fixed(),
                             lifespan(1.5, { fade: 0.5 })
                         ]);
                     } else {
@@ -265,7 +420,6 @@
                         shake(10);
                     }
                 } else {
-                    // Normal Dash for non-beast fruits!
                     if (!currentFruit || isDashing) return;
                     isDashing = true;
                     const dir = player.flipX ? -1 : 1;
@@ -278,16 +432,19 @@
 
             // Bandit AI - Moves towards the player
             onUpdate("enemy", (e) => {
-                if (player.pos.x < e.pos.x) {
-                    e.move(-100, 0);
-                    e.flipX = false;
-                } else {
-                    e.move(100, 0);
-                    e.flipX = true;
+                // Only move if player is on the same island basically
+                if (Math.abs(player.pos.x - e.pos.x) < 800) {
+                    if (player.pos.x < e.pos.x) {
+                        e.move(-100, 0);
+                        e.flipX = false;
+                    } else {
+                        e.move(100, 0);
+                        e.flipX = true;
+                    }
                 }
             });
 
-            // Bandit hits the player
+            // Handle damage from normal enemy
             player.onCollide("enemy", (e) => {
                 const dir = player.pos.x < e.pos.x ? -1 : 1;
                 tween(player.pos.x, player.pos.x + (dir * 150), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
@@ -304,21 +461,32 @@
                 ]);
 
                 if (playerHealth <= 0) {
-                    playerHealth = 500;
-                    healthLabel.text = "HP: " + playerHealth + "/500";
-                    player.pos = vec2(100, 100);
-                    score = 0;
-                    scoreLabel.text = "Beli: " + score;
-                    shake(30);
-                    add([
-                        text("YOU DIED!", { size: 64 }),
-                        pos(width() / 2, height() / 2),
-                        anchor("center"),
-                        color(255, 0, 0),
-                        lifespan(2, { fade: 0.5 })
-                    ]);
+                    die();
                 }
             });
+
+            // Handle damage from BOSS
+            player.onCollide("boss", (b) => {
+                const dir = player.pos.x < b.pos.x ? -1 : 1;
+                tween(player.pos.x, player.pos.x + (dir * 300), 0.2, (p) => player.pos.x = p, easings.easeOutQuad); // Big knockback
+                
+                playerHealth -= 150; // Boss does huge damage!
+                healthLabel.text = "HP: " + playerHealth + "/500";
+                shake(10);
+
+                add([
+                    text("-150!", { size: 48 }),
+                    pos(player.pos.x, player.pos.y - 80),
+                    anchor("center"),
+                    lifespan(0.5, { fade: 0.1 }),
+                    color(255, 0, 0)
+                ]);
+
+                if (playerHealth <= 0) {
+                    die();
+                }
+            });
+
         });
 
         go("main");
