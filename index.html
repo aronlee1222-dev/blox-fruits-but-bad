@@ -205,7 +205,7 @@
         // Dash and Jump
         window.addEventListener('keydown', e => {
             const key = e.key.toLowerCase();
-            if (key === 'w' || key === ' ') {
+            if (key === ' ') {
                 if (playerState.onGround) playerState.jumpCount = 0;
                 if (playerState.jumpCount < playerState.maxJumps) {
                     playerState.velocity.y = playerState.jumpForce;
