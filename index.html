@@ -351,6 +351,7 @@
                         }
                         playerState.beastModel = build3DBeast(playerState.currentFruit);
                         player.add(playerState.beastModel);
+                        camera.position.set(0, 80, 150); // Zoom out
                         showMessage(playerState.currentFruit.toUpperCase() + " TRANSFORMATION!", 2000, "#" + playerState.fruitColor.getHexString());
                     } else {
                         playerSprite.visible = true;
@@ -358,6 +359,7 @@
                             player.remove(playerState.beastModel);
                             playerState.beastModel = null;
                         }
+                        camera.position.set(0, 15, 40); // Zoom in
                     }
                 }
             }
@@ -371,12 +373,22 @@
                     if (score >= 500) {
                         score -= 500;
                         showMessage("Bought Boat!", 2000, "lime");
-                        const bGeo = new THREE.BoxGeometry(20, 5, 40);
+                        const bGroup = new THREE.Group();
+                        bGroup.position.set(player.position.x + 80, -48, player.position.z + 80); // On water
+                        
+                        const bGeo = new THREE.BoxGeometry(80, 20, 160);
                         const bMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
-                        const b = new THREE.Mesh(bGeo, bMat);
-                        b.position.set(player.position.x + 30, -48, player.position.z + 30); // On water
-                        scene.add(b);
-                        if (typeof boats !== 'undefined') boats.push(b);
+                        const hull = new THREE.Mesh(bGeo, bMat);
+                        bGroup.add(hull);
+                        
+                        const sGeo = new THREE.BoxGeometry(20, 10, 20);
+                        const sMat = new THREE.MeshLambertMaterial({ color: 0x444444 });
+                        const seat = new THREE.Mesh(sGeo, sMat);
+                        seat.position.set(0, 15, -40); // Seat at back of boat
+                        bGroup.add(seat);
+
+                        scene.add(bGroup);
+                        if (typeof boats !== 'undefined') boats.push(bGroup);
                     } else {
                         showMessage("Not enough Beli!", 2000, "red");
                     }
@@ -533,9 +545,9 @@
                     playerState.mountedBoat.quaternion.slerp(targetQuat, 0.1);
                 }
 
-                // Lock player to boat
-                player.position.copy(playerState.mountedBoat.position);
-                player.position.y += 10;
+                // Lock player to boat seat
+                const offset = new THREE.Vector3(0, 20, -40).applyQuaternion(playerState.mountedBoat.quaternion);
+                player.position.copy(playerState.mountedBoat.position).add(offset);
                 playerState.velocity.set(0, 0, 0);
             } else {
                 if (!playerState.isDashing) {
