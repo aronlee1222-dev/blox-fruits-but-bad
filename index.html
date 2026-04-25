@@ -82,7 +82,7 @@
             
             // Interaction Prompts
             let promptText = "";
-            if (typeof boatDealer !== 'undefined' && boatDealer && player.position.distanceTo(boatDealer.position) < 30) {
+            if (typeof boatDealer !== 'undefined' && boatDealer && player.position.distanceTo(boatDealer.position) < 80) {
                 promptText = "Press [B] to buy Boat (500 Beli)";
             } else if (!playerState.mountedBoat) {
                 for (let b of (typeof boats !== 'undefined' ? boats : [])) {
@@ -246,13 +246,14 @@
                     addBox(20, 20, 20, 0x4B0082, 5, 10, 10); // Blob
                     addBox(25, 25, 25, 0x4B0082, -5, 20, -10); // Blob
                     break;
-                case 'gas':
+                case 'gas': {
                     const matGas = new THREE.MeshLambertMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.7 });
                     const gGeo = new THREE.SphereGeometry(15);
                     const mesh1 = new THREE.Mesh(gGeo, matGas); mesh1.position.set(0,20,0); group.add(mesh1);
                     const mesh2 = new THREE.Mesh(gGeo, matGas); mesh2.position.set(10,15,10); group.add(mesh2);
                     const mesh3 = new THREE.Mesh(gGeo, matGas); mesh3.position.set(-10,25,-10); group.add(mesh3);
                     break;
+                }
                 default:
                     addBox(20, 20, 20, 0xff0000, 0, 10, 0); // Fallback cube
             }
@@ -366,7 +367,7 @@
                 shootAttack(2); // Bigger attack
             }
             if (key === 'b') {
-                if (typeof boatDealer !== 'undefined' && player.position.distanceTo(boatDealer.position) < 30) {
+                if (typeof boatDealer !== 'undefined' && player.position.distanceTo(boatDealer.position) < 80) {
                     if (score >= 500) {
                         score -= 500;
                         showMessage("Bought Boat!", 2000, "lime");
