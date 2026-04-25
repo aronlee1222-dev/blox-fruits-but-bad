@@ -60,6 +60,7 @@
         <div id="boss-health" class="text-overlay">GORILLA KING HP: 5000</div>
         <div id="crosshair">+</div>
         <div id="messages" class="text-overlay"></div>
+        <div id="interaction-prompt" class="text-overlay" style="bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 24px; display: none;"></div>
     </div>
 
     <script type="module">
@@ -74,8 +75,33 @@
         const bossHealthEl = document.getElementById('boss-health');
         const messagesEl = document.getElementById('messages');
 
+        const promptEl = document.getElementById('interaction-prompt');
+
         function updateUI() {
             beliEl.innerText = `Beli: ${score}`;
+            
+            // Interaction Prompts
+            let promptText = "";
+            if (typeof boatDealer !== 'undefined' && boatDealer && player.position.distanceTo(boatDealer.position) < 30) {
+                promptText = "Press [B] to buy Boat (500 Beli)";
+            } else if (!playerState.mountedBoat) {
+                for (let b of (typeof boats !== 'undefined' ? boats : [])) {
+                    if (player.position.distanceTo(b.position) < 40) {
+                        promptText = "Press [E] to Drive Boat";
+                        break;
+                    }
+                }
+            } else if (playerState.mountedBoat) {
+                promptText = "Press [E] or [Space] to Dismount";
+            }
+            
+            if (promptText) {
+                promptEl.style.display = 'block';
+                promptEl.innerText = promptText;
+            } else {
+                promptEl.style.display = 'none';
+            }
+
             healthEl.innerText = `HP: ${playerHealth}/500`;
             if (bossHealth > 0 && boss) {
                 // Only show if close
@@ -145,6 +171,15 @@
 
         // Starter Island
         const grassGeo = new THREE.BoxGeometry(400, 20, 400);
+
+        // Boat Dealer
+        const dealerGeo = new THREE.BoxGeometry(10, 20, 10);
+        const dealerMat = new THREE.MeshLambertMaterial({ color: 0x0000ff });
+        const boatDealer = new THREE.Mesh(dealerGeo, dealerMat);
+        boatDealer.position.set(0, 0, 190); // Edge of starter island
+        scene.add(boatDealer);
+
+        const boats = [];
         const grassMat = new THREE.MeshLambertMaterial({ color: 0x228B22 });
         const island1 = new THREE.Mesh(grassGeo, grassMat);
         island1.position.set(0, -10, 0);
@@ -194,7 +229,8 @@
             isDashing: false,
             currentFruit: null,
             fruitColor: new THREE.Color(0xffffff),
-            isTransformed: false
+            isTransformed: false,
+            mountedBoat: null
         };
 
         // --- Inputs ---
@@ -206,11 +242,16 @@
         window.addEventListener('keydown', e => {
             const key = e.key.toLowerCase();
             if (key === ' ') {
-                if (playerState.onGround) playerState.jumpCount = 0;
-                if (playerState.jumpCount < playerState.maxJumps) {
-                    playerState.velocity.y = playerState.jumpForce;
-                    playerState.onGround = false;
-                    playerState.jumpCount++;
+                if (playerState.mountedBoat) {
+                    playerState.mountedBoat = null; // Dismount
+                    playerState.velocity.y = 50; // Jump off
+                } else {
+                    if (playerState.onGround) playerState.jumpCount = 0;
+                    if (playerState.jumpCount < playerState.maxJumps) {
+                        playerState.velocity.y = playerState.jumpForce;
+                        playerState.onGround = false;
+                        playerState.jumpCount++;
+                    }
                 }
             }
             if (key === 'q' && !playerState.isDashing) {
@@ -239,6 +280,37 @@
             // Generic attacks
             if (['z','x','c'].includes(key) && playerState.currentFruit) {
                 shootAttack(2); // Bigger attack
+            }
+            if (key === 'b') {
+                if (typeof boatDealer !== 'undefined' && player.position.distanceTo(boatDealer.position) < 30) {
+                    if (score >= 500) {
+                        score -= 500;
+                        showMessage("Bought Boat!", 2000, "lime");
+                        const bGeo = new THREE.BoxGeometry(20, 5, 40);
+                        const bMat = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                        const b = new THREE.Mesh(bGeo, bMat);
+                        b.position.set(player.position.x + 30, -48, player.position.z + 30); // On water
+                        scene.add(b);
+                        if (typeof boats !== 'undefined') boats.push(b);
+                    } else {
+                        showMessage("Not enough Beli!", 2000, "red");
+                    }
+                }
+            }
+            if (key === 'e') {
+                if (playerState.mountedBoat) {
+                    playerState.mountedBoat = null; // Dismount
+                    playerState.velocity.y = 50; // Jump off
+                } else {
+                    if (typeof boats !== 'undefined') {
+                        for (let b of boats) {
+                            if (player.position.distanceTo(b.position) < 40) {
+                                playerState.mountedBoat = b;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         });
 
@@ -366,23 +438,39 @@
             dir.normalize();
             dir.applyQuaternion(player.quaternion); // Move relative to where we're looking
             
-            if (!playerState.isDashing) {
-                player.position.addScaledVector(dir, playerState.speed * dt);
+            if (playerState.mountedBoat) {
+                // Drive boat
+                playerState.mountedBoat.position.addScaledVector(dir, 150 * dt);
+                
+                // Rotate boat to face direction of movement
+                if (dir.lengthSq() > 0.01) {
+                    const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir.clone().normalize());
+                    playerState.mountedBoat.quaternion.slerp(targetQuat, 0.1);
+                }
+
+                // Lock player to boat
+                player.position.copy(playerState.mountedBoat.position);
+                player.position.y += 10;
+                playerState.velocity.set(0, 0, 0);
             } else {
-                player.position.addScaledVector(playerState.velocity, dt); // Dash velocity
-                playerState.velocity.lerp(new THREE.Vector3(0, playerState.velocity.y, 0), 0.1); // friction on XZ
-            }
+                if (!playerState.isDashing) {
+                    player.position.addScaledVector(dir, playerState.speed * dt);
+                } else {
+                    player.position.addScaledVector(playerState.velocity, dt); // Dash velocity
+                    playerState.velocity.lerp(new THREE.Vector3(0, playerState.velocity.y, 0), 0.1); // friction on XZ
+                }
 
-            // Gravity
-            playerState.velocity.y -= 300 * dt; // Gravity
-            player.position.y += playerState.velocity.y * dt;
+                // Gravity
+                playerState.velocity.y -= 300 * dt; // Gravity
+                player.position.y += playerState.velocity.y * dt;
 
-            // Floor collision
-            const floorY = checkCollision(player.position, 1);
-            if (floorY !== null && playerState.velocity.y <= 0) {
-                player.position.y = floorY;
-                playerState.velocity.y = 0;
-                playerState.onGround = true;
+                // Floor collision
+                const floorY = checkCollision(player.position, 1);
+                if (floorY !== null && playerState.velocity.y <= 0) {
+                    player.position.y = floorY;
+                    playerState.velocity.y = 0;
+                    playerState.onGround = true;
+                }
             }
 
             // Ocean death
