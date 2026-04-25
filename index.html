@@ -1,495 +1,502 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Blox Fruits (But Bad) - Boss Island Update!</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blox Fruits (But Bad) - 3D Update!</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; }
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background-color: #87CEEB;}
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .text-overlay {
+            position: absolute;
+            color: white;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            font-weight: bold;
+        }
+        #beli { top: 20px; left: 20px; font-size: 24px; color: yellow; }
+        #health { top: 60px; left: 20px; font-size: 24px; color: #ff5555; }
+        #boss-health { top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; color: #ff3333; display: none;}
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+            text-shadow: 1px 1px 2px black;
+        }
+        #messages {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: yellow;
+            text-align: center;
+        }
     </style>
+    <!-- Import Three.js -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
 </head>
 <body>
+    <div id="ui-layer">
+        <div id="beli" class="text-overlay">Beli: 0</div>
+        <div id="health" class="text-overlay">HP: 500/500</div>
+        <div id="boss-health" class="text-overlay">GORILLA KING HP: 5000</div>
+        <div id="crosshair">+</div>
+        <div id="messages" class="text-overlay"></div>
+    </div>
+
     <script type="module">
-        import kaboom from "https://unpkg.com/kaboom@3000.1.17/dist/kaboom.mjs";
+        import * as THREE from 'three';
 
-        kaboom({
-            background: [135, 206, 235], // Sky blue
+        // --- UI Setup ---
+        let score = 0;
+        let playerHealth = 500;
+        let bossHealth = 5000;
+        const beliEl = document.getElementById('beli');
+        const healthEl = document.getElementById('health');
+        const bossHealthEl = document.getElementById('boss-health');
+        const messagesEl = document.getElementById('messages');
+
+        function updateUI() {
+            beliEl.innerText = `Beli: ${score}`;
+            healthEl.innerText = `HP: ${playerHealth}/500`;
+            if (bossHealth > 0 && boss) {
+                // Only show if close
+                if (player.position.distanceTo(boss.position) < 400) {
+                    bossHealthEl.style.display = 'block';
+                    bossHealthEl.innerText = `GORILLA KING HP: ${bossHealth}`;
+                } else {
+                    bossHealthEl.style.display = 'none';
+                }
+            } else {
+                bossHealthEl.style.display = 'none';
+            }
+        }
+
+        function showMessage(text, duration = 2000, color = "yellow") {
+            messagesEl.innerText = text;
+            messagesEl.style.color = color;
+            setTimeout(() => {
+                if (messagesEl.innerText === text) messagesEl.innerText = '';
+            }, duration);
+        }
+
+        // --- Scene Setup ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        scene.fog = new THREE.Fog(0x87CEEB, 200, 1500);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(100, 200, 50);
+        scene.add(dirLight);
+
+        // --- Textures ---
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.setPath('sprites/');
+        // Helper to load sprite material without blurring
+        function loadSpriteMat(name) {
+            const map = textureLoader.load(name + '.png');
+            map.magFilter = THREE.NearestFilter;
+            map.minFilter = THREE.NearestFilter;
+            return new THREE.SpriteMaterial({ map: map, color: 0xffffff });
+        }
+
+        const mats = {
+            player: loadSpriteMat('player_swordsman'),
+            bandit: loadSpriteMat('bandit_enemy'),
+            boss: loadSpriteMat('bandit_enemy') // Boss is red later
+        };
+        mats.boss.color = new THREE.Color(0xff3333);
+
+        // Transformation sprites
+        const beasts = ["dragon", "tiger", "kitsune", "yeti", "t-rex", "venom", "gas", "mammoth", "phoenix", "eagle"];
+        beasts.forEach(b => {
+            mats[b] = loadSpriteMat(b + '_beast');
         });
 
-        // Set gravity for the world
-        setGravity(1600);
+        // --- World Building ---
+        const colliders = [];
 
-        // Load Sprites
-        loadSprite("player", "sprites/player_swordsman.png");
-        loadSprite("bandit", "sprites/bandit_enemy.png");
-        loadSprite("rocket", "sprites/rocket_fruit.png");
-        loadSprite("spin", "sprites/spin_fruit.png");
-        loadSprite("flame", "sprites/flame_fruit.png");
-        loadSprite("dragon_beast", "sprites/dragon_beast.png");
-        loadSprite("tiger_beast", "sprites/tiger_beast.png");
-        loadSprite("kitsune_beast", "sprites/kitsune_beast.png");
-        loadSprite("yeti_beast", "sprites/yeti_beast.png");
-        loadSprite("t-rex_beast", "sprites/t-rex_beast.png");
-        loadSprite("venom_beast", "sprites/venom_beast.png");
-        loadSprite("gas_beast", "sprites/gas_beast.png");
-        loadSprite("mammoth_beast", "sprites/mammoth_beast.png");
-        loadSprite("phoenix_beast", "sprites/phoenix_beast.png");
-        loadSprite("eagle_beast", "sprites/eagle_beast.png");
+        // Starter Island
+        const grassGeo = new THREE.BoxGeometry(400, 20, 400);
+        const grassMat = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+        const island1 = new THREE.Mesh(grassGeo, grassMat);
+        island1.position.set(0, -10, 0);
+        scene.add(island1);
+        colliders.push(island1);
 
-        scene("main", () => {
-            let score = 0;
-            const scoreLabel = add([
-                text("Beli: " + score),
-                pos(24, 24),
-                color(255, 255, 0),
-                fixed()
-            ]);
+        // Boss Island
+        const stoneGeo = new THREE.BoxGeometry(500, 20, 500);
+        const stoneMat = new THREE.MeshLambertMaterial({ color: 0x696969 });
+        const island2 = new THREE.Mesh(stoneGeo, stoneMat);
+        island2.position.set(1200, -10, 0); // Far on X axis
+        scene.add(island2);
+        colliders.push(island2);
 
-            let playerHealth = 500;
-            const healthLabel = add([
-                text("HP: " + playerHealth + "/500"),
-                pos(24, 60),
-                color(255, 0, 0),
-                fixed()
-            ]);
+        // Ocean
+        const oceanGeo = new THREE.PlaneGeometry(10000, 10000);
+        const oceanMat = new THREE.MeshLambertMaterial({ color: 0x006994, transparent: true, opacity: 0.8 });
+        const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+        ocean.rotation.x = -Math.PI / 2;
+        ocean.position.y = -50;
+        scene.add(ocean);
 
-            let bossHealth = 5000;
-            const bossHealthBar = add([
-                text("GORILLA KING HP: " + bossHealth),
-                pos(width() / 2, 40),
-                anchor("center"),
-                color(255, 50, 50),
-                fixed(),
-                opacity(0)
-            ]);
+        // --- Player ---
+        const player = new THREE.Group();
+        player.position.set(0, 10, 0);
+        scene.add(player);
 
-            // Ocean (Death boundary)
-            add([
-                rect(10000, 200),
-                pos(-1000, height()),
-                area(),
-                color(0, 105, 148), // Ocean blue
-                "ocean"
-            ]);
+        const playerSprite = new THREE.Sprite(mats.player);
+        playerSprite.scale.set(15, 15, 1);
+        playerSprite.position.y = 8;
+        player.add(playerSprite);
 
-            // Starter Island
-            add([
-                rect(1500, 48),
-                pos(-100, height() - 48),
-                outline(4),
-                area(),
-                body({ isStatic: true }),
-                color(34, 139, 34), // Grass green
-                "ground"
-            ]);
+        // Camera Pivot (Third Person)
+        const cameraPivot = new THREE.Group();
+        player.add(cameraPivot);
+        camera.position.set(0, 15, 40);
+        cameraPivot.add(camera);
 
-            // Boss Island (Far to the right!)
-            add([
-                rect(2000, 48),
-                pos(2500, height() - 48),
-                outline(4),
-                area(),
-                body({ isStatic: true }),
-                color(105, 105, 105), // Gray stone
-                "ground"
-            ]);
+        // Player physics/movement state
+        const playerState = {
+            velocity: new THREE.Vector3(),
+            onGround: false,
+            speed: 60,
+            jumpForce: 100,
+            jumpCount: 0,
+            maxJumps: 12,
+            isDashing: false,
+            currentFruit: null,
+            fruitColor: new THREE.Color(0xffffff),
+            isTransformed: false
+        };
 
-            // Player
-            const player = add([
-                sprite("player"),
-                pos(100, 100),
-                area(),
-                body(),
-                anchor("center"),
-                scale(0.15),
-                "player",
-            ]);
+        // --- Inputs ---
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-            const die = () => {
-                playerHealth = 500;
-                healthLabel.text = "HP: " + playerHealth + "/500";
-                player.pos = vec2(100, 100);
-                score = 0;
-                scoreLabel.text = "Beli: " + score;
-                shake(30);
-                add([
-                    text("YOU DIED!", { size: 64 }),
-                    pos(width() / 2, height() / 2),
-                    anchor("center"),
-                    color(255, 0, 0),
-                    fixed(),
-                    lifespan(2, { fade: 0.5 })
-                ]);
-            };
-
-            // Camera follow & fall in ocean check
-            player.onUpdate(() => {
-                camPos(player.pos.x, height() / 2);
-                if (player.pos.x < -100) player.pos.x = -100; // Left boundary so you can't run backwards forever
-                
-                if (player.pos.y > height() + 100) {
-                    die(); // Fell in the ocean!
+        // Dash and Jump
+        window.addEventListener('keydown', e => {
+            const key = e.key.toLowerCase();
+            if (key === 'w' || key === ' ') {
+                if (playerState.onGround) playerState.jumpCount = 0;
+                if (playerState.jumpCount < playerState.maxJumps) {
+                    playerState.velocity.y = playerState.jumpForce;
+                    playerState.onGround = false;
+                    playerState.jumpCount++;
                 }
-            });
-
-            // Bandit Enemy Spawner
-            const spawnBandit = () => {
-                // Spawn on starter island if player is there, else near player
-                let spawnX = player.pos.x + 400 * (choose([-1, 1]));
-                if (spawnX < 0) spawnX = 200; // Don't spawn off left edge
-                if (spawnX > 1400 && spawnX < 2500) spawnX = 1300; // Don't spawn in ocean
-                
-                add([
-                    sprite("bandit"),
-                    pos(spawnX, 100),
-                    area(),
-                    body(),
-                    anchor("center"),
-                    scale(0.15),
-                    "enemy"
-                ]);
-            };
-
-            spawnBandit(); // Initial bandit
-
-            // GORILLA BOSS
-            const boss = add([
-                sprite("bandit"), // Using bandit sprite but HUGE and RED
-                pos(3500, 100),
-                area(),
-                body(),
-                anchor("center"),
-                scale(0.6), // Huge!
-                color(255, 50, 50),
-                "boss"
-            ]);
-
-            boss.onUpdate(() => {
-                // Wake up if player is near
-                if (Math.abs(player.pos.x - boss.pos.x) < 800 && bossHealth > 0) {
-                    bossHealthBar.opacity = 1;
-                    bossHealthBar.text = "GORILLA KING HP: " + bossHealth;
-                    
-                    if (player.pos.x < boss.pos.x) {
-                        boss.move(-120, 0); // Slightly faster than normal bandits
-                        boss.flipX = false;
+            }
+            if (key === 'q' && !playerState.isDashing) {
+                playerState.isDashing = true;
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
+                playerState.velocity.add(forward.multiplyScalar(200));
+                setTimeout(() => playerState.isDashing = false, 300);
+            }
+            if (key === 'v') {
+                const bFruits = ["dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "venom", "gas"];
+                if (playerState.currentFruit && bFruits.includes(playerState.currentFruit)) {
+                    playerState.isTransformed = !playerState.isTransformed;
+                    if (playerState.isTransformed) {
+                        playerSprite.material = mats[playerState.currentFruit] || mats.player;
+                        playerSprite.scale.set(30, 30, 1);
+                        playerSprite.position.y = 15;
+                        showMessage(playerState.currentFruit.toUpperCase() + " TRANSFORMATION!", 2000, "#" + playerState.fruitColor.getHexString());
                     } else {
-                        boss.move(120, 0);
-                        boss.flipX = true;
-                    }
-                } else {
-                    bossHealthBar.opacity = 0;
-                }
-            });
-
-
-            // Movement variables
-            const SPEED = 300;
-            let isDashing = false;
-            let jumpCount = 0;
-            const MAX_JUMPS = 12; // Double jumps!
-            let currentFruit = null; 
-            let isTransformed = false; 
-
-            onKeyDown("d", () => {
-                if (!isDashing) {
-                    player.move(SPEED, 0);
-                    player.flipX = false;
-                }
-            });
-
-            onKeyDown("a", () => {
-                if (!isDashing) {
-                    player.move(-SPEED, 0);
-                    player.flipX = true;
-                }
-            });
-
-            // Dash
-            onKeyPress("q", async () => {
-                if (!isDashing) {
-                    isDashing = true;
-                    const dir = player.flipX ? -1 : 1;
-                    tween(player.pos.x, player.pos.x + (dir * 250), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
-                    await wait(0.4);
-                    isDashing = false;
-                }
-            });
-
-            // 12x Jump
-            onKeyPress("w", () => {
-                if (player.isGrounded()) {
-                    jumpCount = 0;
-                }
-                if (jumpCount < MAX_JUMPS) {
-                    player.jump(450);
-                    jumpCount++;
-                }
-            });
-
-            player.onGround(() => {
-                jumpCount = 0;
-            });
-
-            // Attack (Click or F)
-            const doAttack = () => {
-                const dir = player.flipX ? -1 : 1;
-                add([
-                    rect(isTransformed ? 120 : 60, isTransformed ? 150 : 20),
-                    pos(player.pos.x + (dir * 80), player.pos.y + (isTransformed ? 40 : 0)),
-                    anchor("center"),
-                    area(),
-                    color(isTransformed ? fruitColor : rgb(255, 255, 255)),
-                    move(dir === -1 ? LEFT : RIGHT, 800),
-                    lifespan(1),
-                    "attack" 
-                ]);
-            };
-
-            onClick(doAttack);
-            onKeyPress("f", doAttack);
-
-            // Create hit visual effect
-            const createHitEffect = (p, c) => {
-                const eff = add([
-                    circle(10),
-                    pos(p),
-                    anchor("center"),
-                    color(c),
-                    lifespan(0.3, { fade: 0.3 })
-                ]);
-                eff.onUpdate(() => {
-                    eff.radius += 10;
-                });
-            };
-
-            // Attack hits normal enemy
-            onCollide("attack", "enemy", (a, e) => {
-                createHitEffect(e.pos, rgb(255, 255, 0));
-                destroy(e);
-                score += 100;
-                scoreLabel.text = "Beli: " + score;
-                shake(10);
-                
-                const fruits = ["rocket", "spin", "blade", "spring", "bomb", "smoke", "spike", "flame", "ice", "sand", "dark", "eagle", "diamond", "light", "rubber", "ghost", "magma", "quake", "buddha", "love", "creation", "spider", "sound", "phoenix", "portal", "lightning", "pain", "blizzard", "gravity", "mammoth", "t-rex", "shadow", "venom", "gas", "spirit", "tiger", "yeti", "kitsune", "control", "dragon"];
-                const drop = choose(fruits);
-                
-                // Color based on fruit name
-                let h = 0; for(let i=0;i<drop.length;i++) h = drop.charCodeAt(i) + ((h<<5)-h);
-                const fr = Math.abs((h & 0xFF0000) >> 16);
-                const fg = Math.abs((h & 0x00FF00) >> 8);
-                const fb = Math.abs(h & 0x0000FF);
-                
-                const fruitEnt = add([
-                    rect(40, 40, { radius: 10 }),
-                    color(fr, fg, fb),
-                    pos(e.pos.x, e.pos.y),
-                    area(),
-                    body(),
-                    anchor("center"),
-                    "fruit",
-                    { fruitType: drop, fr: fr, fg: fg, fb: fb }
-                ]);
-                fruitEnt.add([
-                    text(drop, { size: 12 }),
-                    anchor("center"),
-                    color(255,255,255)
-                ]);
-                
-                wait(2, spawnBandit);
-            });
-
-            // Attack hits BOSS
-            onCollide("attack", "boss", (a, b) => {
-                createHitEffect(a.pos, rgb(255, 100, 0));
-                bossHealth -= isTransformed ? 200 : 100; // Do more damage if transformed!
-                shake(15);
-                destroy(a); // Destroy attack projectile
-
-                add([
-                    text(isTransformed ? "-200" : "-100", { size: 48 }),
-                    pos(a.pos.x, a.pos.y - 50),
-                    anchor("center"),
-                    color(255, 255, 0),
-                    lifespan(0.5, { fade: 0.2 })
-                ]);
-
-                if (bossHealth <= 0) {
-                    destroy(b);
-                    score += 5000;
-                    scoreLabel.text = "Beli: " + score;
-                    bossHealthBar.opacity = 0;
-                    shake(50);
-                    
-                    add([
-                        text("GORILLA KING DEFEATED!", { size: 64 }),
-                        pos(width() / 2, height() / 2),
-                        anchor("center"),
-                        color(255, 215, 0),
-                        fixed(),
-                        lifespan(3, { fade: 1 })
-                    ]);
-
-                    // Drop 3 random fruits!
-                    for(let k=0; k<3; k++) {
-                        const fruits = ["dragon", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle"]; // Boss drops high tier!
-                        const drop = choose(fruits);
-                        let h = 0; for(let i=0;i<drop.length;i++) h = drop.charCodeAt(i) + ((h<<5)-h);
-                        const fr = Math.abs((h & 0xFF0000) >> 16);
-                        const fg = Math.abs((h & 0x00FF00) >> 8);
-                        const fb = Math.abs(h & 0x0000FF);
-                        
-                        const fruitEnt = add([
-                            rect(50, 50, { radius: 15 }),
-                            color(fr, fg, fb),
-                            pos(b.pos.x - 100 + (k*100), b.pos.y),
-                            area(),
-                            body(),
-                            anchor("center"),
-                            "fruit",
-                            { fruitType: drop, fr: fr, fg: fg, fb: fb }
-                        ]);
-                        fruitEnt.add([
-                            text(drop, { size: 14 }),
-                            anchor("center"),
-                            color(255,255,255)
-                        ]);
+                        playerSprite.material = mats.player;
+                        playerSprite.scale.set(15, 15, 1);
+                        playerSprite.position.y = 8;
                     }
                 }
-            });
+            }
+            
+            // Generic attacks
+            if (['z','x','c'].includes(key) && playerState.currentFruit) {
+                shootAttack(2); // Bigger attack
+            }
+        });
 
-            let fruitColor = rgb(255,255,255);
+        // Mouse rotation
+        let isPointerLocked = false;
+        document.body.addEventListener('click', () => {
+            if (!isPointerLocked) {
+                document.body.requestPointerLock();
+            } else {
+                shootAttack(playerState.isTransformed ? 2 : 1);
+            }
+        });
+        document.addEventListener('pointerlockchange', () => {
+            isPointerLocked = document.pointerLockElement === document.body;
+        });
+        document.addEventListener('mousemove', e => {
+            if (isPointerLocked) {
+                player.rotation.y -= e.movementX * 0.002;
+                // Don't rotate camera pitch for this simple clone to keep it easy, or just a little bit
+                cameraPivot.rotation.x -= e.movementY * 0.002;
+                cameraPivot.rotation.x = Math.max(-Math.PI/4, Math.min(Math.PI/4, cameraPivot.rotation.x));
+            }
+        });
 
-            // Collect fruit
-            player.onCollide("fruit", (f) => {
-                destroy(f);
-                currentFruit = f.fruitType;
-                fruitColor = rgb(f.fr, f.fg, f.fb);
-                add([
-                    text("Got " + f.fruitType.toUpperCase() + " Fruit!", { size: 32 }),
-                    pos(width()/2, height()/4),
-                    anchor("center"),
-                    color(fruitColor),
-                    fixed(),
-                    lifespan(2, { fade: 0.5 })
-                ]);
-            });
+        // --- Game Entities ---
+        const enemies = [];
+        const projectiles = [];
+        const fruits = [];
+        let boss = null;
 
-            // Generic Fruit Abilities for ALL 40 fruits!
-            onKeyPress("z", () => {
-                if (!currentFruit) return;
-                add([rect(50, 30), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), "attack", move(player.flipX ? LEFT : RIGHT, 1000), lifespan(1)]);
-                shake(5);
-            });
+        function spawnBandit(pos) {
+            const eGroup = new THREE.Group();
+            eGroup.position.copy(pos);
+            const spr = new THREE.Sprite(mats.bandit);
+            spr.scale.set(15, 15, 1);
+            spr.position.y = 8;
+            eGroup.add(spr);
+            scene.add(eGroup);
+            enemies.push({ mesh: eGroup, hp: 50, speed: 20 });
+        }
 
-            onKeyPress("x", () => {
-                if (!currentFruit) return;
-                player.jump(800);
-                add([circle(50), pos(player.pos.x, player.pos.y + 20), anchor("center"), area(), color(fruitColor), "attack", lifespan(0.3, { fade: 0.3 })]);
-                shake(10);
-            });
+        function spawnBoss() {
+            boss = new THREE.Group();
+            boss.position.set(1200, 0, 0); // On Boss Island
+            const spr = new THREE.Sprite(mats.boss);
+            spr.scale.set(50, 50, 1); // Huge
+            spr.position.y = 25;
+            boss.add(spr);
+            scene.add(boss);
+        }
 
-            onKeyPress("c", () => {
-                if (!currentFruit) return;
-                add([circle(150), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), lifespan(0.3, { fade: 0.2 }), "attack"]);
-                shake(20);
-            });
+        // Spawn initial bandit
+        spawnBandit(new THREE.Vector3(100, 0, 50));
+        spawnBoss();
 
-            onKeyPress("v", async () => {
-                const beastFruits = ["dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "buddha", "venom", "gas"];
-                if (currentFruit && beastFruits.includes(currentFruit)) {
-                    isTransformed = !isTransformed;
-                    if (isTransformed) {
-                        player.scale = vec2(0.4); 
-                        const hasSpecificSprite = ["dragon", "tiger", "kitsune", "yeti", "t-rex", "venom", "gas", "mammoth", "phoenix", "eagle"].includes(currentFruit);
-                        if (hasSpecificSprite) {
-                            player.use(sprite(currentFruit + "_beast"));
+        function shootAttack(scaleMultiplier = 1) {
+            const geo = new THREE.BoxGeometry(5 * scaleMultiplier, 5 * scaleMultiplier, 5 * scaleMultiplier);
+            const mat = new THREE.MeshBasicMaterial({ color: playerState.isTransformed ? playerState.fruitColor : 0xffffff });
+            const p = new THREE.Mesh(geo, mat);
+            
+            // Start at player, move forward
+            p.position.copy(player.position);
+            p.position.y += 10;
+            
+            // Direction based on camera/player rotation
+            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
+            
+            scene.add(p);
+            projectiles.push({ mesh: p, dir: dir, speed: 200, life: 1.0, damage: playerState.isTransformed ? 200 : 100 });
+        }
+
+        function dropFruit(pos, isBoss = false) {
+            const fruitList = ["rocket", "spin", "flame", "dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "venom", "gas"];
+            const type = fruitList[Math.floor(Math.random() * fruitList.length)];
+            
+            // Random color
+            const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+            
+            const geo = new THREE.BoxGeometry(8, 8, 8);
+            const mat = new THREE.MeshLambertMaterial({ color: color });
+            const f = new THREE.Mesh(geo, mat);
+            f.position.copy(pos);
+            f.position.y += 5;
+            
+            scene.add(f);
+            fruits.push({ mesh: f, type: type, color: color });
+        }
+
+        function die() {
+            playerHealth = 500;
+            score = 0;
+            player.position.set(0, 50, 0);
+            playerState.velocity.set(0,0,0);
+            showMessage("YOU DIED!", 3000, "red");
+            updateUI();
+        }
+
+        // --- Physics & Update Loop ---
+        const clock = new THREE.Clock();
+
+        function checkCollision(pos, radius) {
+            // Very simple AABB with islands
+            for (let c of colliders) {
+                const box = new THREE.Box3().setFromObject(c);
+                if (pos.x > box.min.x && pos.x < box.max.x &&
+                    pos.z > box.min.z && pos.z < box.max.z &&
+                    pos.y >= box.min.y && pos.y <= box.max.y + radius) {
+                    return box.max.y; // Return ground height
+                }
+            }
+            return null;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            // Player Movement Logic
+            const dir = new THREE.Vector3();
+            if (keys['w']) dir.z -= 1;
+            if (keys['s']) dir.z += 1;
+            if (keys['a']) dir.x -= 1;
+            if (keys['d']) dir.x += 1;
+            
+            dir.normalize();
+            dir.applyQuaternion(player.quaternion); // Move relative to where we're looking
+            
+            if (!playerState.isDashing) {
+                player.position.addScaledVector(dir, playerState.speed * dt);
+            } else {
+                player.position.addScaledVector(playerState.velocity, dt); // Dash velocity
+                playerState.velocity.lerp(new THREE.Vector3(0, playerState.velocity.y, 0), 0.1); // friction on XZ
+            }
+
+            // Gravity
+            playerState.velocity.y -= 300 * dt; // Gravity
+            player.position.y += playerState.velocity.y * dt;
+
+            // Floor collision
+            const floorY = checkCollision(player.position, 1);
+            if (floorY !== null && playerState.velocity.y <= 0) {
+                player.position.y = floorY;
+                playerState.velocity.y = 0;
+                playerState.onGround = true;
+            }
+
+            // Ocean death
+            if (player.position.y < -40) {
+                die();
+            }
+
+            // Projectiles update
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.mesh.position.addScaledVector(p.dir, p.speed * dt);
+                p.life -= dt;
+                
+                let hit = false;
+                
+                // Hit Boss
+                if (boss && p.mesh.position.distanceTo(boss.position) < 30) {
+                    bossHealth -= p.damage;
+                    hit = true;
+                    if (bossHealth <= 0) {
+                        scene.remove(boss);
+                        boss = null;
+                        score += 5000;
+                        showMessage("GORILLA KING DEFEATED!", 4000, "gold");
+                        // Drop 3 fruits
+                        for(let k=0; k<3; k++) dropFruit(new THREE.Vector3(1200 + k*20, 0, 0), true);
+                    }
+                }
+
+                // Hit Enemies
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const e = enemies[j];
+                    if (p.mesh.position.distanceTo(e.mesh.position) < 15) {
+                        e.hp -= p.damage;
+                        hit = true;
+                        if (e.hp <= 0) {
+                            scene.remove(e.mesh);
+                            enemies.splice(j, 1);
+                            score += 100;
+                            dropFruit(e.mesh.position);
+                            // Respawn bandit
+                            setTimeout(() => {
+                                spawnBandit(new THREE.Vector3(
+                                    player.position.x + (Math.random()-0.5)*200, 
+                                    10, 
+                                    player.position.z + (Math.random()-0.5)*200
+                                ));
+                            }, 2000);
                         }
-                        player.color = rgb(255, 255, 255); 
-                        shake(30);
-                        add([
-                            text(currentFruit.toUpperCase() + " TRANSFORMATION!", { size: 48 }),
-                            pos(width()/2, height()/2),
-                            anchor("center"),
-                            color(fruitColor),
-                            fixed(),
-                            lifespan(1.5, { fade: 0.5 })
-                        ]);
-                    } else {
-                        player.scale = vec2(0.15); 
-                        player.use(sprite("player")); 
-                        player.color = rgb(255, 255, 255);
-                        shake(10);
                     }
-                } else {
-                    if (!currentFruit || isDashing) return;
-                    isDashing = true;
-                    const dir = player.flipX ? -1 : 1;
-                    add([rect(300, 60), pos(player.pos.x, player.pos.y), anchor("center"), area(), color(fruitColor), lifespan(0.3, { fade: 0.3 }), "attack"]);
-                    tween(player.pos.x, player.pos.x + (dir * 500), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
-                    await wait(0.4);
-                    isDashing = false;
                 }
-            });
 
-            // Bandit AI - Moves towards the player
-            onUpdate("enemy", (e) => {
-                // Only move if player is on the same island basically
-                if (Math.abs(player.pos.x - e.pos.x) < 800) {
-                    if (player.pos.x < e.pos.x) {
-                        e.move(-100, 0);
-                        e.flipX = false;
-                    } else {
-                        e.move(100, 0);
-                        e.flipX = true;
+                if (hit || p.life <= 0) {
+                    scene.remove(p.mesh);
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // Enemies Update (Move towards player)
+            enemies.forEach(e => {
+                if (e.mesh.position.distanceTo(player.position) < 400) {
+                    const toPlayer = new THREE.Vector3().copy(player.position).sub(e.mesh.position);
+                    toPlayer.y = 0;
+                    toPlayer.normalize();
+                    e.mesh.position.addScaledVector(toPlayer, e.speed * dt);
+                    
+                    // Damage player
+                    if (e.mesh.position.distanceTo(player.position) < 10) {
+                        playerHealth -= 50;
+                        e.mesh.position.sub(toPlayer.multiplyScalar(20)); // Knockback enemy
+                        if (playerHealth <= 0) die();
                     }
                 }
             });
 
-            // Handle damage from normal enemy
-            player.onCollide("enemy", (e) => {
-                const dir = player.pos.x < e.pos.x ? -1 : 1;
-                tween(player.pos.x, player.pos.x + (dir * 150), 0.2, (p) => player.pos.x = p, easings.easeOutQuad);
+            // Boss Update
+            if (boss && boss.position.distanceTo(player.position) < 600) {
+                const toPlayer = new THREE.Vector3().copy(player.position).sub(boss.position);
+                toPlayer.y = 0;
+                toPlayer.normalize();
+                boss.position.addScaledVector(toPlayer, 30 * dt);
                 
-                playerHealth -= 50;
-                healthLabel.text = "HP: " + playerHealth + "/500";
-
-                add([
-                    text("-50", { size: 32 }),
-                    pos(player.pos.x, player.pos.y - 50),
-                    anchor("center"),
-                    lifespan(0.5, { fade: 0.1 }),
-                    color(255, 0, 0)
-                ]);
-
-                if (playerHealth <= 0) {
-                    die();
+                if (boss.position.distanceTo(player.position) < 30) {
+                    playerHealth -= 150;
+                    player.position.addScaledVector(toPlayer, 50); // Knockback player
+                    if (playerHealth <= 0) die();
                 }
-            });
+            }
 
-            // Handle damage from BOSS
-            player.onCollide("boss", (b) => {
-                const dir = player.pos.x < b.pos.x ? -1 : 1;
-                tween(player.pos.x, player.pos.x + (dir * 300), 0.2, (p) => player.pos.x = p, easings.easeOutQuad); // Big knockback
-                
-                playerHealth -= 150; // Boss does huge damage!
-                healthLabel.text = "HP: " + playerHealth + "/500";
-                shake(10);
-
-                add([
-                    text("-150!", { size: 48 }),
-                    pos(player.pos.x, player.pos.y - 80),
-                    anchor("center"),
-                    lifespan(0.5, { fade: 0.1 }),
-                    color(255, 0, 0)
-                ]);
-
-                if (playerHealth <= 0) {
-                    die();
+            // Collect Fruits
+            for (let i = fruits.length - 1; i >= 0; i--) {
+                const f = fruits[i];
+                f.mesh.rotation.y += 2 * dt; // Spin fruit
+                if (player.position.distanceTo(f.mesh.position) < 15) {
+                    playerState.currentFruit = f.type;
+                    playerState.fruitColor = f.color;
+                    showMessage(`Got ${f.type.toUpperCase()} Fruit!`, 2000, "#" + f.color.getHexString());
+                    scene.remove(f.mesh);
+                    fruits.splice(i, 1);
                 }
-            });
+            }
 
+            updateUI();
+            renderer.render(scene, camera);
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        go("main");
+        animate();
     </script>
 </body>
 </html>
