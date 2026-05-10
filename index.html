@@ -168,6 +168,7 @@
         let playerMaxExp = 100;
         let bossHealth = 5000;
         let bossMaxHealth = 5000;
+        let boss = null;
         
         const beliEl = document.getElementById('beli');
         const levelTextEl = document.getElementById('level-text');
@@ -862,7 +863,6 @@
         const enemies = [];
         const projectiles = [];
         const fruits = [];
-        let boss = null;
 
         function spawnEnemy(pos, type = 'bandit') {
             const eGroup = new THREE.Group();
