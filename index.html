@@ -21,9 +21,41 @@
             text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
             font-weight: bold;
         }
-        #beli { top: 20px; left: 20px; font-size: 24px; color: yellow; }
-        #health { top: 60px; left: 20px; font-size: 24px; color: #ff5555; }
-        #boss-health { top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; color: #ff3333; display: none;}
+        #ui-top-left {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-weight: bold;
+            z-index: 100;
+        }
+        .bar-container {
+            width: 300px;
+            height: 25px;
+            background-color: rgba(0,0,0,0.5);
+            border: 2px solid #fff;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background-color: #ff5555;
+            width: 100%;
+            transition: width 0.2s, background-color 0.2s;
+        }
+        .bar-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 2px;
+            font-size: 18px;
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+        }
+        #beli { font-size: 24px; color: yellow; margin-bottom: 10px; text-shadow: 2px 2px 0 #000; }
+        #level-text { font-size: 20px; color: #00ffff; margin-bottom: 5px; text-shadow: 2px 2px 0 #000; }
+        #boss-health-container { top: 20px; left: 50%; transform: translateX(-50%); position: absolute; display: none; width: 600px; z-index: 100; }
         #crosshair {
             position: absolute;
             top: 50%;
@@ -42,6 +74,40 @@
             color: yellow;
             text-align: center;
         }
+        #stats-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 2px solid white;
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            z-index: 200;
+            display: none;
+            text-align: center;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            font-size: 20px;
+            width: 300px;
+        }
+        .stat-btn {
+            background-color: #ffaa00;
+            border: none;
+            color: black;
+            font-weight: bold;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .stat-btn:hover {
+            background-color: #ffcc00;
+        }
     </style>
     <!-- Import Three.js -->
     <script type="importmap">
@@ -55,12 +121,39 @@
 </head>
 <body>
     <div id="ui-layer">
-        <div id="beli" class="text-overlay">Beli: 0</div>
-        <div id="health" class="text-overlay">HP: 500/500</div>
-        <div id="boss-health" class="text-overlay">GORILLA KING HP: 5000</div>
+        <div id="ui-top-left">
+            <div id="beli" class="text-overlay" style="position: relative; top: auto; left: auto;">Beli: 0</div>
+            <div id="level-text" class="text-overlay" style="position: relative; top: auto; left: auto;">Level: 1</div>
+            <div class="bar-container">
+                <div id="health-fill" class="bar-fill" style="background-color: #ff5555;"></div>
+                <div id="health-text" class="bar-text text-overlay" style="position: relative; top: -23px;">HP: 500/500</div>
+            </div>
+            <div class="bar-container" style="height: 15px;">
+                <div id="exp-fill" class="bar-fill" style="background-color: #00aaff; width: 0%;"></div>
+                <div id="exp-text" class="bar-text text-overlay" style="font-size: 12px; position: relative; top: -18px;">EXP: 0/100</div>
+            </div>
+        </div>
+        <div id="boss-health-container">
+            <div class="bar-container" style="width: 100%; height: 35px;">
+                <div id="boss-health-fill" class="bar-fill" style="background-color: #ff3333;"></div>
+                <div id="boss-health-text" class="bar-text text-overlay" style="font-size: 24px; position: relative; top: -33px; width: 100%;">GORILLA KING HP: 5000</div>
+            </div>
+        </div>
         <div id="crosshair">+</div>
         <div id="messages" class="text-overlay"></div>
         <div id="interaction-prompt" class="text-overlay" style="bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 24px; display: none;"></div>
+        <div id="quest-tracker" class="text-overlay" style="top: 20px; right: 20px; font-size: 20px; color: #ffaa00; text-align: right; display: none;">
+            <div>QUEST: Defeat Bandits</div>
+            <div id="quest-progress">0/5</div>
+        </div>
+        <div id="stats-menu">
+            <h2>STATS</h2>
+            <p id="stat-points-text" style="color: yellow;">Unspent Points: 0</p>
+            <div class="stat-row"><span>Melee: <span id="stat-melee-val">1</span></span><button class="stat-btn" id="btn-melee">+</button></div>
+            <div class="stat-row"><span>Defense: <span id="stat-defense-val">1</span></span><button class="stat-btn" id="btn-defense">+</button></div>
+            <div class="stat-row"><span>Blox Fruit: <span id="stat-blox-val">1</span></span><button class="stat-btn" id="btn-blox">+</button></div>
+            <p style="font-size: 14px; margin-top: 20px; color: #ccc;">Press [Tab] to close</p>
+        </div>
     </div>
 
     <script type="module">
@@ -69,20 +162,73 @@
         // --- UI Setup ---
         let score = 0;
         let playerHealth = 500;
+        let playerMaxHealth = 500;
+        let playerLevel = 1;
+        let playerExp = 0;
+        let playerMaxExp = 100;
         let bossHealth = 5000;
+        let bossMaxHealth = 5000;
+        
         const beliEl = document.getElementById('beli');
-        const healthEl = document.getElementById('health');
-        const bossHealthEl = document.getElementById('boss-health');
+        const levelTextEl = document.getElementById('level-text');
+        const healthFillEl = document.getElementById('health-fill');
+        const healthTextEl = document.getElementById('health-text');
+        const expFillEl = document.getElementById('exp-fill');
+        const expTextEl = document.getElementById('exp-text');
+        const bossHealthContainer = document.getElementById('boss-health-container');
+        const bossHealthFillEl = document.getElementById('boss-health-fill');
+        const bossHealthTextEl = document.getElementById('boss-health-text');
         const messagesEl = document.getElementById('messages');
 
         const promptEl = document.getElementById('interaction-prompt');
+        const questTrackerEl = document.getElementById('quest-tracker');
+        const questProgressEl = document.getElementById('quest-progress');
+
+        const statsMenu = document.getElementById('stats-menu');
+        const statPointsText = document.getElementById('stat-points-text');
+        const statMeleeVal = document.getElementById('stat-melee-val');
+        const statDefenseVal = document.getElementById('stat-defense-val');
+        const statBloxVal = document.getElementById('stat-blox-val');
+
+        let currentQuest = null;
+        let questProgress = 0;
+        let questTarget = 0;
+
+        let statPoints = 0;
+        let statMelee = 1;
+        let statDefense = 1;
+        let statBlox = 1;
+
+        document.getElementById('btn-melee').addEventListener('click', () => {
+            if (statPoints > 0) { statPoints--; statMelee++; updateUI(); }
+        });
+        document.getElementById('btn-defense').addEventListener('click', () => {
+            if (statPoints > 0) { 
+                statPoints--; statDefense++; 
+                playerMaxHealth = 500 + (statDefense - 1) * 20;
+                playerHealth += 20;
+                updateUI(); 
+            }
+        });
+        document.getElementById('btn-blox').addEventListener('click', () => {
+            if (statPoints > 0) { statPoints--; statBlox++; updateUI(); }
+        });
 
         function updateUI() {
             beliEl.innerText = `Beli: ${score}`;
+            levelTextEl.innerText = `Level: ${playerLevel}`;
+            
+            healthTextEl.innerText = `HP: ${Math.floor(playerHealth)}/${playerMaxHealth}`;
+            healthFillEl.style.width = `${Math.max(0, (playerHealth / playerMaxHealth) * 100)}%`;
+            
+            expTextEl.innerText = `EXP: ${playerExp}/${playerMaxExp}`;
+            expFillEl.style.width = `${Math.min(100, (playerExp / playerMaxExp) * 100)}%`;
             
             // Interaction Prompts
             let promptText = "";
-            if (typeof boatDealer !== 'undefined' && boatDealer && player.position.distanceTo(boatDealer.position) < 80) {
+            if (typeof questGiver !== 'undefined' && questGiver && player.position.distanceTo(questGiver.position) < 80) {
+                promptText = "Press [E] to Talk to Quest Giver";
+            } else if (typeof boatDealer !== 'undefined' && boatDealer && player.position.distanceTo(boatDealer.position) < 80) {
                 promptText = "Press [B] to buy Boat (500 Beli)";
             } else if (!playerState.mountedBoat) {
                 for (let b of (typeof boats !== 'undefined' ? boats : [])) {
@@ -102,18 +248,30 @@
                 promptEl.style.display = 'none';
             }
 
-            healthEl.innerText = `HP: ${playerHealth}/500`;
             if (bossHealth > 0 && boss) {
                 // Only show if close
                 if (player.position.distanceTo(boss.position) < 400) {
-                    bossHealthEl.style.display = 'block';
-                    bossHealthEl.innerText = `GORILLA KING HP: ${bossHealth}`;
+                    bossHealthContainer.style.display = 'block';
+                    bossHealthTextEl.innerText = `GORILLA KING HP: ${Math.floor(bossHealth)}/${bossMaxHealth}`;
+                    bossHealthFillEl.style.width = `${Math.max(0, (bossHealth / bossMaxHealth) * 100)}%`;
                 } else {
-                    bossHealthEl.style.display = 'none';
+                    bossHealthContainer.style.display = 'none';
                 }
             } else {
-                bossHealthEl.style.display = 'none';
+                bossHealthContainer.style.display = 'none';
             }
+
+            if (currentQuest) {
+                questTrackerEl.style.display = 'block';
+                questProgressEl.innerText = `${questProgress}/${questTarget}`;
+            } else {
+                questTrackerEl.style.display = 'none';
+            }
+
+            statPointsText.innerText = `Unspent Points: ${statPoints}`;
+            statMeleeVal.innerText = statMelee;
+            statDefenseVal.innerText = statDefense;
+            statBloxVal.innerText = statBlox;
         }
 
         function showMessage(text, duration = 2000, color = "yellow") {
@@ -156,12 +314,16 @@
         const mats = {
             player: loadSpriteMat('player_swordsman'),
             bandit: loadSpriteMat('bandit_enemy'),
-            boss: loadSpriteMat('bandit_enemy') // Boss is red later
+            boss: loadSpriteMat('bandit_enemy'), // Boss is red later
+            desertBandit: loadSpriteMat('bandit_enemy'),
+            snowman: loadSpriteMat('bandit_enemy')
         };
         mats.boss.color = new THREE.Color(0xff3333);
+        mats.desertBandit.color = new THREE.Color(0xffffaa); // Yellow tint
+        mats.snowman.color = new THREE.Color(0xaaffff); // Light blue tint
 
         // Transformation sprites
-        const beasts = ["dragon", "tiger", "kitsune", "yeti", "t-rex", "venom", "gas", "mammoth", "phoenix", "eagle"];
+        const beasts = ["dragon", "tiger", "kitsune", "yeti", "t-rex", "venom", "gas", "mammoth", "phoenix", "eagle", "ice", "buddha"];
         beasts.forEach(b => {
             mats[b] = loadSpriteMat(b + '_beast');
         });
@@ -178,6 +340,12 @@
         const boatDealer = new THREE.Mesh(dealerGeo, dealerMat);
         boatDealer.position.set(0, 30, -50); // Right in front of spawn
         scene.add(boatDealer);
+
+        // Quest Giver
+        const questMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 }); // Glowing orange
+        const questGiver = new THREE.Mesh(dealerGeo, questMat);
+        questGiver.position.set(30, 30, -50);
+        scene.add(questGiver);
 
         const boats = [];
 
@@ -254,6 +422,18 @@
                     const mesh3 = new THREE.Mesh(gGeo, matGas); mesh3.position.set(-10,25,-10); group.add(mesh3);
                     break;
                 }
+                case 'ice':
+                    addBox(20, 40, 20, 0x00ffff, 0, 20, 0); // Ice golem body
+                    addBox(15, 15, 15, 0xaaffff, 0, 45, 0); // Ice head
+                    addBox(10, 30, 10, 0x00ffff, 20, 20, 0); // Ice arm
+                    addBox(10, 30, 10, 0x00ffff, -20, 20, 0); // Ice arm
+                    break;
+                case 'buddha':
+                    addBox(50, 60, 40, 0xffd700, 0, 30, 0); // Golden body
+                    addBox(30, 30, 30, 0xffd700, 0, 75, 0); // Golden head
+                    addBox(20, 50, 20, 0xffd700, 40, 30, 0); // Golden arm
+                    addBox(20, 50, 20, 0xffd700, -40, 30, 0); // Golden arm
+                    break;
                 default:
                     addBox(20, 20, 20, 0xff0000, 0, 10, 0); // Fallback cube
             }
@@ -272,6 +452,22 @@
         island2.position.set(1200, -10, 0); // Far on X axis
         scene.add(island2);
         colliders.push(island2);
+
+        // Desert Island
+        const sandGeo = new THREE.BoxGeometry(400, 20, 400);
+        const sandMat = new THREE.MeshLambertMaterial({ color: 0xF4A460 }); // Sandy brown
+        const desertIsland = new THREE.Mesh(sandGeo, sandMat);
+        desertIsland.position.set(-800, -10, -800);
+        scene.add(desertIsland);
+        colliders.push(desertIsland);
+
+        // Snow Island
+        const snowGeo = new THREE.BoxGeometry(400, 20, 400);
+        const snowMat = new THREE.MeshLambertMaterial({ color: 0xFFFAFA }); // Snow white
+        const snowIsland = new THREE.Mesh(snowGeo, snowMat);
+        snowIsland.position.set(800, -10, 800);
+        scene.add(snowIsland);
+        colliders.push(snowIsland);
 
         // Ocean
         const oceanGeo = new THREE.PlaneGeometry(10000, 10000);
@@ -315,8 +511,19 @@
 
         // --- Inputs ---
         const keys = {};
-        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+        window.addEventListener('keydown', e => { 
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                statsMenu.style.display = statsMenu.style.display === 'block' ? 'none' : 'block';
+                // Exit pointer lock if menu opened
+                if (statsMenu.style.display === 'block' && isPointerLocked) {
+                    document.exitPointerLock();
+                }
+            } else {
+                keys[e.key.toLowerCase()] = true; 
+            }
+        });
+        window.addEventListener('keyup', e => { if(e.key !== 'Tab') keys[e.key.toLowerCase()] = false; });
 
         // Dash and Jump
         window.addEventListener('keydown', e => {
@@ -326,22 +533,40 @@
                     playerState.mountedBoat = null; // Dismount
                     playerState.velocity.y = 50; // Jump off
                 } else {
-                    if (playerState.onGround) playerState.jumpCount = 0;
-                    if (playerState.jumpCount < playerState.maxJumps) {
-                        playerState.velocity.y = playerState.jumpForce;
+                    if (playerState.isTransformed && playerState.currentFruit === 'phoenix') {
+                        // Continuous flight for Phoenix
+                        playerState.velocity.y = 120; // Upward flap
                         playerState.onGround = false;
-                        playerState.jumpCount++;
+                        // Particle effect
+                        const fGeo = new THREE.BoxGeometry(2,2,2);
+                        const fMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+                        const fMesh = new THREE.Mesh(fGeo, fMat);
+                        fMesh.position.copy(player.position);
+                        scene.add(fMesh);
+                        setTimeout(() => scene.remove(fMesh), 500);
+                    } else {
+                        if (playerState.onGround) playerState.jumpCount = 0;
+                        if (playerState.jumpCount < playerState.maxJumps) {
+                            playerState.velocity.y = playerState.jumpForce;
+                            playerState.onGround = false;
+                            playerState.jumpCount++;
+                        }
                     }
                 }
             }
             if (key === 'q' && !playerState.isDashing) {
                 playerState.isDashing = true;
                 const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
-                playerState.velocity.add(forward.multiplyScalar(200));
+                if (playerState.currentFruit === 'light') {
+                    playerState.velocity.add(forward.multiplyScalar(800));
+                    showMessage("LIGHT FLIGHT!", 1000, "#ffff00");
+                } else {
+                    playerState.velocity.add(forward.multiplyScalar(200));
+                }
                 setTimeout(() => playerState.isDashing = false, 300);
             }
             if (key === 'v') {
-                const bFruits = ["dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "venom", "gas"];
+                const bFruits = ["dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "venom", "gas", "ice", "buddha"];
                 if (playerState.currentFruit && bFruits.includes(playerState.currentFruit)) {
                     playerState.isTransformed = !playerState.isTransformed;
                     if (playerState.isTransformed) {
@@ -366,7 +591,137 @@
             
             // Generic attacks
             if (['z','x','c'].includes(key) && playerState.currentFruit) {
-                shootAttack(2); // Bigger attack
+                if (playerState.isTransformed && playerState.currentFruit === 'mammoth' && key === 'c') {
+                    // Mammoth Stomp
+                    if (!playerState.onGround) return;
+                    showMessage("MAMMOTH STOMP!", 1000, "#8B4513");
+                    // AoE effect visual
+                    const stompGeo = new THREE.CylinderGeometry(40, 40, 5, 16);
+                    const stompMat = new THREE.MeshBasicMaterial({ color: 0x8B4513, transparent: true, opacity: 0.5 });
+                    const stompMesh = new THREE.Mesh(stompGeo, stompMat);
+                    stompMesh.position.copy(player.position);
+                    stompMesh.position.y -= 5;
+                    scene.add(stompMesh);
+                    
+                    // Fade out the visual
+                    setTimeout(() => { scene.remove(stompMesh); }, 300);
+                    
+                    // Damage calculation
+                    const damageMult = 1 + (statBlox - 1) * 0.1;
+                    const stompDamage = 400 * damageMult;
+                    
+                    // Damage enemies
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        if (player.position.distanceTo(e.mesh.position) < 45) {
+                            e.hp -= stompDamage;
+                            // Knockback
+                            const toEnemy = new THREE.Vector3().copy(e.mesh.position).sub(player.position).normalize();
+                            e.mesh.position.addScaledVector(toEnemy, 30);
+                            
+                            if (e.hp <= 0) {
+                                scene.remove(e.mesh);
+                                enemies.splice(j, 1);
+                                handleEnemyDeath(e.mesh);
+                            }
+                        }
+                    }
+                    
+                    if (boss && player.position.distanceTo(boss.position) < 60) {
+                        bossHealth -= stompDamage;
+                        if (bossHealth <= 0) {
+                            scene.remove(boss);
+                            boss = null;
+                            score += 5000;
+                            gainExp(500);
+                            showMessage("GORILLA KING DEFEATED!", 4000, "gold");
+                            for(let k=0; k<3; k++) dropFruit(new THREE.Vector3(1200 + k*20, 0, 0), true);
+                        }
+                    }
+                } else if (playerState.currentFruit === 'quake' && key === 'c') {
+                    // Quake Shockwave
+                    if (!playerState.onGround) return;
+                    showMessage("QUAKE TSUNAMI!", 1000, "#ffffff");
+                    
+                    const shockGeo = new THREE.RingGeometry(10, 80, 32);
+                    const shockMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+                    const shockMesh = new THREE.Mesh(shockGeo, shockMat);
+                    shockMesh.rotation.x = -Math.PI / 2;
+                    shockMesh.position.copy(player.position);
+                    shockMesh.position.y -= 8;
+                    scene.add(shockMesh);
+                    
+                    setTimeout(() => { scene.remove(shockMesh); }, 400);
+                    
+                    const damageMult = 1 + (statBlox - 1) * 0.1;
+                    const quakeDamage = 500 * damageMult;
+                    
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        if (player.position.distanceTo(e.mesh.position) < 85) {
+                            e.hp -= quakeDamage;
+                            const toEnemy = new THREE.Vector3().copy(e.mesh.position).sub(player.position).normalize();
+                            e.mesh.position.addScaledVector(toEnemy, 50); // Huge knockback
+                            if (e.hp <= 0) {
+                                scene.remove(e.mesh);
+                                enemies.splice(j, 1);
+                                handleEnemyDeath(e.mesh);
+                            }
+                        }
+                    }
+                    if (boss && player.position.distanceTo(boss.position) < 100) {
+                        bossHealth -= quakeDamage;
+                        if (bossHealth <= 0) {
+                            scene.remove(boss); boss = null; score += 5000; gainExp(500); showMessage("GORILLA KING DEFEATED!", 4000, "gold");
+                            for(let k=0; k<3; k++) dropFruit(new THREE.Vector3(1200 + k*20, 0, 0), true);
+                        }
+                    }
+                } else if (playerState.currentFruit === 'rubber') {
+                    // Stretchy punch
+                    showMessage("GUM GUM PISTOL!", 1000, "#ffaaaa");
+                    const armGeo = new THREE.BoxGeometry(5, 5, 80);
+                    const armMat = new THREE.MeshLambertMaterial({ color: 0xffe0bd });
+                    const armMesh = new THREE.Mesh(armGeo, armMat);
+                    
+                    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
+                    armMesh.position.copy(player.position).addScaledVector(forward, 40);
+                    armMesh.position.y += 10;
+                    armMesh.quaternion.copy(player.quaternion);
+                    scene.add(armMesh);
+                    
+                    setTimeout(() => { scene.remove(armMesh); }, 200);
+                    
+                    const damageMult = 1 + (statBlox - 1) * 0.1;
+                    const punchDamage = 250 * damageMult;
+                    
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        if (player.position.distanceTo(e.mesh.position) < 85) {
+                            const toEnemy = new THREE.Vector3().copy(e.mesh.position).sub(player.position).normalize();
+                            if (forward.dot(toEnemy) > 0.8) {
+                                e.hp -= punchDamage;
+                                e.mesh.position.addScaledVector(forward, 20);
+                                if (e.hp <= 0) {
+                                    scene.remove(e.mesh);
+                                    enemies.splice(j, 1);
+                                    handleEnemyDeath(e.mesh);
+                                }
+                            }
+                        }
+                    }
+                    if (boss && player.position.distanceTo(boss.position) < 100) {
+                        const toBoss = new THREE.Vector3().copy(boss.position).sub(player.position).normalize();
+                        if (forward.dot(toBoss) > 0.8) {
+                            bossHealth -= punchDamage;
+                            if (bossHealth <= 0) {
+                                scene.remove(boss); boss = null; score += 5000; gainExp(500); showMessage("GORILLA KING DEFEATED!", 4000, "gold");
+                                for(let k=0; k<3; k++) dropFruit(new THREE.Vector3(1200 + k*20, 0, 0), true);
+                            }
+                        }
+                    }
+                } else {
+                    shootAttack(2); // Bigger attack
+                }
             }
             if (key === 'b') {
                 if (typeof boatDealer !== 'undefined' && player.position.distanceTo(boatDealer.position) < 80) {
@@ -395,7 +750,27 @@
                 }
             }
             if (key === 'e') {
-                if (playerState.mountedBoat) {
+                if (typeof questGiver !== 'undefined' && questGiver && player.position.distanceTo(questGiver.position) < 80) {
+                    if (currentQuest === 'bandits') {
+                        if (questProgress >= questTarget) {
+                            // Turn in quest
+                            currentQuest = null;
+                            questProgress = 0;
+                            questTarget = 0;
+                            score += 1000;
+                            gainExp(200);
+                            showMessage("Quest Completed! (+1000 Beli, +200 EXP)", 3000, "lime");
+                        } else {
+                            showMessage("You haven't finished the quest yet!", 2000, "red");
+                        }
+                    } else {
+                        // Give quest
+                        currentQuest = 'bandits';
+                        questProgress = 0;
+                        questTarget = 5;
+                        showMessage("Quest Accepted: Defeat 5 Bandits!", 3000, "yellow");
+                    }
+                } else if (playerState.mountedBoat) {
                     playerState.mountedBoat = null; // Dismount
                     playerState.velocity.y = 50; // Jump off
                 } else {
@@ -438,15 +813,28 @@
         const fruits = [];
         let boss = null;
 
-        function spawnBandit(pos) {
+        function spawnEnemy(pos, type = 'bandit') {
             const eGroup = new THREE.Group();
             eGroup.position.copy(pos);
-            const spr = new THREE.Sprite(mats.bandit);
+            let sprMat = mats.bandit;
+            let hp = 50;
+            let speed = 20;
+            if (type === 'desert') {
+                sprMat = mats.desertBandit;
+                hp = 150;
+                speed = 25;
+            } else if (type === 'snow') {
+                sprMat = mats.snowman;
+                hp = 300;
+                speed = 15;
+            }
+            const spr = new THREE.Sprite(sprMat);
             spr.scale.set(15, 15, 1);
             spr.position.y = 8;
             eGroup.add(spr);
+            eGroup.userData = { home: pos.clone() };
             scene.add(eGroup);
-            enemies.push({ mesh: eGroup, hp: 50, speed: 20 });
+            enemies.push({ mesh: eGroup, hp: hp, speed: speed, type: type });
         }
 
         function spawnBoss() {
@@ -459,12 +847,51 @@
             scene.add(boss);
         }
 
-        // Spawn initial bandit
-        spawnBandit(new THREE.Vector3(100, 0, 50));
+        function handleEnemyDeath(eMesh) {
+            score += 100;
+            gainExp(25);
+            dropFruit(eMesh.position);
+            
+            if (currentQuest === 'bandits') {
+                questProgress++;
+                if (questProgress >= questTarget) {
+                    showMessage("Quest Objective Complete! Return to Quest Giver.", 3000, "lime");
+                } else {
+                    showMessage(`Bandits: ${questProgress}/${questTarget}`, 1000, "yellow");
+                }
+            }
+
+            let spawnPos = new THREE.Vector3(player.position.x + (Math.random()-0.5)*200, 10, player.position.z + (Math.random()-0.5)*200);
+            
+            // Try to keep enemies near their island origin if killed
+            if (eMesh.userData && eMesh.userData.home) {
+                spawnPos = new THREE.Vector3(eMesh.userData.home.x + (Math.random()-0.5)*100, 10, eMesh.userData.home.z + (Math.random()-0.5)*100);
+            }
+
+            // Figure out type based on home region or just spawn a regular bandit near player as fallback
+            let respawnType = 'bandit';
+            if (spawnPos.x < -400) respawnType = 'desert';
+            if (spawnPos.x > 400 && spawnPos.z > 400) respawnType = 'snow';
+
+            setTimeout(() => {
+                spawnEnemy(spawnPos, respawnType);
+            }, 2000);
+        }
+
+        // Spawn initial enemies
+        spawnEnemy(new THREE.Vector3(100, 0, 50), 'bandit');
+        spawnEnemy(new THREE.Vector3(-800, 0, -800), 'desert');
+        spawnEnemy(new THREE.Vector3(800, 0, 800), 'snow');
         spawnBoss();
 
         function shootAttack(scaleMultiplier = 1) {
-            const geo = new THREE.BoxGeometry(5 * scaleMultiplier, 5 * scaleMultiplier, 5 * scaleMultiplier);
+            let isDragon = false;
+            if (playerState.isTransformed && playerState.currentFruit === 'dragon') {
+                scaleMultiplier = 5; // Massive fireball
+                isDragon = true;
+            }
+            
+            const geo = isDragon ? new THREE.SphereGeometry(3 * scaleMultiplier, 8, 8) : new THREE.BoxGeometry(5 * scaleMultiplier, 5 * scaleMultiplier, 5 * scaleMultiplier);
             const mat = new THREE.MeshBasicMaterial({ color: playerState.isTransformed ? playerState.fruitColor : 0xffffff });
             const p = new THREE.Mesh(geo, mat);
             
@@ -476,11 +903,17 @@
             const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
             
             scene.add(p);
-            projectiles.push({ mesh: p, dir: dir, speed: 200, life: 1.0, damage: playerState.isTransformed ? 200 : 100 });
+            
+            // Damage scaling
+            const damageMult = playerState.isTransformed ? (1 + (statBlox - 1) * 0.1) : (1 + (statMelee - 1) * 0.1);
+            const baseDamage = playerState.isTransformed ? 200 : 100;
+            const finalDamage = isDragon ? baseDamage * 2 * damageMult : baseDamage * damageMult;
+            
+            projectiles.push({ mesh: p, dir: dir, speed: isDragon ? 150 : 200, life: 1.0, damage: finalDamage });
         }
 
         function dropFruit(pos, isBoss = false) {
-            const fruitList = ["rocket", "spin", "flame", "dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "venom", "gas"];
+            const fruitList = ["rocket", "spin", "flame", "dragon", "tiger", "kitsune", "yeti", "mammoth", "t-rex", "phoenix", "eagle", "venom", "gas", "ice", "buddha", "light", "rubber", "quake"];
             const type = fruitList[Math.floor(Math.random() * fruitList.length)];
             
             // Random color
@@ -497,12 +930,24 @@
         }
 
         function die() {
-            playerHealth = 500;
-            score = 0;
+            playerHealth = playerMaxHealth;
+            score = Math.floor(score / 2); // Lose half beli on death
             player.position.set(0, 50, 0);
             playerState.velocity.set(0,0,0);
             showMessage("YOU DIED!", 3000, "red");
             updateUI();
+        }
+
+        function gainExp(amount) {
+            playerExp += amount;
+            while (playerExp >= playerMaxExp) {
+                playerExp -= playerMaxExp;
+                playerLevel++;
+                playerMaxExp = Math.floor(playerMaxExp * 1.5);
+                statPoints += 3;
+                playerHealth = playerMaxHealth; // Heal on level up
+                showMessage("LEVEL UP! +3 Stat Points", 3000, "#00ffff");
+            }
         }
 
         // --- Physics & Update Loop ---
@@ -516,6 +961,13 @@
                     pos.z > box.min.z && pos.z < box.max.z &&
                     pos.y >= box.min.y && pos.y <= box.max.y + radius) {
                     return box.max.y; // Return ground height
+                }
+            }
+            // Water walking collision
+            const waterWalkers = ['yeti', 'ice', 'kitsune', 'buddha'];
+            if (playerState.currentFruit && waterWalkers.includes(playerState.currentFruit)) {
+                if (pos.y <= -48 + radius && pos.y >= -100) {
+                    return -48; // Water level
                 }
             }
             return null;
@@ -591,6 +1043,7 @@
                         scene.remove(boss);
                         boss = null;
                         score += 5000;
+                        gainExp(500);
                         showMessage("GORILLA KING DEFEATED!", 4000, "gold");
                         // Drop 3 fruits
                         for(let k=0; k<3; k++) dropFruit(new THREE.Vector3(1200 + k*20, 0, 0), true);
@@ -606,16 +1059,7 @@
                         if (e.hp <= 0) {
                             scene.remove(e.mesh);
                             enemies.splice(j, 1);
-                            score += 100;
-                            dropFruit(e.mesh.position);
-                            // Respawn bandit
-                            setTimeout(() => {
-                                spawnBandit(new THREE.Vector3(
-                                    player.position.x + (Math.random()-0.5)*200, 
-                                    10, 
-                                    player.position.z + (Math.random()-0.5)*200
-                                ));
-                            }, 2000);
+                            handleEnemyDeath(e.mesh);
                         }
                     }
                 }
