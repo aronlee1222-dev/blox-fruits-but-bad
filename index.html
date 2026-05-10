@@ -410,9 +410,20 @@
                     addBox(10, 10, 10, 0xffffff, 0, 20, -15); // Head
                     break;
                 case 'venom':
-                    addBox(30, 30, 30, 0x800080, 0, 15, 0); // Blob
-                    addBox(20, 20, 20, 0x4B0082, 5, 10, 10); // Blob
-                    addBox(25, 25, 25, 0x4B0082, -5, 20, -10); // Blob
+                    // 3-Headed Venom Dragon
+                    addBox(20, 20, 60, 0x800080, 0, 15, 0); // Body
+                    // Main Head
+                    addBox(15, 15, 20, 0x4B0082, 0, 25, -35);
+                    addBox(4, 4, 15, 0x00ff00, 5, 30, -40); // Horn
+                    addBox(4, 4, 15, 0x00ff00, -5, 30, -40); // Horn
+                    // Left Head
+                    addBox(12, 12, 18, 0x4B0082, 15, 20, -30);
+                    addBox(3, 3, 10, 0x00ff00, 15, 25, -35); // Horn
+                    // Right Head
+                    addBox(12, 12, 18, 0x4B0082, -15, 20, -30);
+                    addBox(3, 3, 10, 0x00ff00, -15, 25, -35); // Horn
+                    // Wings
+                    addBox(40, 5, 20, 0x800080, 0, 25, 0); // Wings
                     break;
                 case 'gas': {
                     const matGas = new THREE.MeshLambertMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.7 });
@@ -508,6 +519,46 @@
             mountedBoat: null,
             beastModel: null
         };
+
+        function saveProgress() {
+            const data = {
+                score, playerHealth, playerMaxHealth, playerLevel, playerExp, playerMaxExp,
+                statPoints, statMelee, statDefense, statBlox,
+                currentFruit: playerState.currentFruit,
+                fruitColor: playerState.fruitColor.getHexString()
+            };
+            localStorage.setItem('bloxFruitsSave', JSON.stringify(data));
+        }
+
+        function loadProgress() {
+            const saved = localStorage.getItem('bloxFruitsSave');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    score = data.score || 0;
+                    playerMaxHealth = data.playerMaxHealth || 500;
+                    playerHealth = data.playerHealth || playerMaxHealth;
+                    playerLevel = data.playerLevel || 1;
+                    playerExp = data.playerExp || 0;
+                    playerMaxExp = data.playerMaxExp || 100;
+                    statPoints = data.statPoints || 0;
+                    statMelee = data.statMelee || 1;
+                    statDefense = data.statDefense || 1;
+                    statBlox = data.statBlox || 1;
+                    
+                    if (data.currentFruit) {
+                        playerState.currentFruit = data.currentFruit;
+                        playerState.fruitColor = new THREE.Color('#' + data.fruitColor);
+                    }
+                } catch (e) {
+                    console.error("Failed to load save", e);
+                }
+            }
+        }
+
+        loadProgress();
+        updateUI();
+        setInterval(saveProgress, 2000); // Auto-save every 2 seconds
 
         // --- Inputs ---
         const keys = {};
@@ -1023,7 +1074,13 @@
             }
 
             // Ocean death
-            if (player.position.y < -40) {
+            const waterWalkers = ['yeti', 'ice', 'kitsune', 'buddha'];
+            const canWalkOnWater = playerState.currentFruit && waterWalkers.includes(playerState.currentFruit);
+            
+            if (player.position.y < -40 && !canWalkOnWater) {
+                die();
+            } else if (player.position.y < -100) {
+                // Fallback death
                 die();
             }
 
