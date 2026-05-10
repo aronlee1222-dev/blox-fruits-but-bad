@@ -1016,7 +1016,7 @@
             }
             // Water walking collision
             const waterWalkers = ['yeti', 'ice', 'kitsune', 'buddha'];
-            if (playerState.currentFruit && waterWalkers.includes(playerState.currentFruit)) {
+            if (playerState.currentFruit && waterWalkers.includes(playerState.currentFruit.toLowerCase())) {
                 if (pos.y <= -48 + radius && pos.y >= -100) {
                     return -48; // Water level
                 }
@@ -1075,7 +1075,7 @@
 
             // Ocean death
             const waterWalkers = ['yeti', 'ice', 'kitsune', 'buddha'];
-            const canWalkOnWater = playerState.currentFruit && waterWalkers.includes(playerState.currentFruit);
+            const canWalkOnWater = playerState.currentFruit && waterWalkers.includes(playerState.currentFruit.toLowerCase());
             
             if (player.position.y < -40 && !canWalkOnWater) {
                 die();
